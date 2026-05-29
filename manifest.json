@@ -1,0 +1,14 @@
+{
+  "name": "Full Body 3-Day Trainer",
+  "short_name": "3-Day",
+  "description": "Workout tracker with exercise logging, history, and progression charts",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0a0a0c",
+  "theme_color": "#0a0a0c",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
