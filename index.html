@@ -308,24 +308,60 @@ function exCard(ex,di,ei,prefix){
 function togCard(id){document.getElementById('card_'+id).classList.toggle('open')}
 function selAlt(prefix,ei,ai){D.selections[`${prefix}-${ei}`]=ai;save();render()}
 
+let logSetCounts={};
+
 function showLog(cid,numSets,ekey,exName,mg,di,restSec){
   const hist=D.history[ekey]||[];const last=hist.length?hist[hist.length-1]:null;const accent=AC[di]||AC[0];
+  logSetCounts[cid]=numSets;
   let rows='';for(let i=0;i<numSets;i++){const pw=last&&last.sets[i]?last.sets[i].weight:'';const pr=last&&last.sets[i]?last.sets[i].reps:'';
-    rows+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#5a5868;width:22px;text-align:center">S${i+1}</span>
-    <input class="sinp" type="number" inputmode="decimal" placeholder="lbs" value="${pw}" id="lw_${cid}_${i}">
+    const onChange=i===0?` oninput="autoFill('${cid}')"`:'';
+    const onManual=i>0?` onfocus="this.dataset.auto='0'"`:'';
+    rows+=`<div id="srow_${cid}_${i}" style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#5a5868;width:22px;text-align:center">S${i+1}</span>
+    <input class="sinp" type="number" inputmode="decimal" placeholder="lbs" value="${pw}" id="lw_${cid}_${i}"${onChange}${onManual}>
     <span style="color:#5a5868;font-size:11px">x</span>
-    <input class="sinp" type="number" inputmode="numeric" placeholder="reps" value="${pr}" id="lr_${cid}_${i}"></div>`}
+    <input class="sinp" type="number" inputmode="numeric" placeholder="reps" value="${pr}" id="lr_${cid}_${i}"${onChange}${onManual}></div>`}
   document.getElementById('logarea_'+cid).innerHTML=`<div style="width:100%"><div class="dlbl">Log Workout</div>
     <div style="display:flex;gap:8px;margin-bottom:6px;padding-left:22px"><span style="flex:1;text-align:center;font-size:10px;font-family:'JetBrains Mono',monospace;color:#5a5868;text-transform:uppercase;letter-spacing:1px">Weight</span><span style="width:12px"></span><span style="flex:1;text-align:center;font-size:10px;font-family:'JetBrains Mono',monospace;color:#5a5868;text-transform:uppercase;letter-spacing:1px">Reps</span></div>
-    ${rows}
+    <div id="setrows_${cid}">${rows}</div>
+    <button onclick="event.stopPropagation();addSet('${cid}')" style="width:100%;padding:8px 0;background:var(--s2);border:1px dashed var(--bd);border-radius:8px;color:var(--td);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;cursor:pointer;margin-bottom:8px">+ Add Set</button>
     <textarea id="note_${cid}" placeholder="Session notes (optional)" style="width:100%;background:var(--s2);border:1px solid var(--bd);border-radius:8px;color:var(--t);padding:9px 10px;font-size:13px;outline:none;resize:none;height:48px;margin-top:4px"></textarea>
     <div style="display:flex;gap:8px;margin-top:8px">
       <button class="btn btn-s" onclick="render()">Cancel</button>
-      <button class="btn btn-p" style="background:${accent}" onclick="saveLog('${cid}',${numSets},'${ekey}','${exName.replace(/'/g,"\\'")}','${mg}',${restSec})">Save</button>
+      <button class="btn btn-p" style="background:${accent}" onclick="saveLog('${cid}','${ekey}','${exName.replace(/'/g,"\\'")}','${mg}',${restSec})">Save</button>
     </div></div>`;
 }
 
-function saveLog(cid,numSets,ekey,exName,mg,restSec){
+function addSet(cid){
+  const i=logSetCounts[cid];
+  logSetCounts[cid]=i+1;
+  // Pre-fill from S1 values if they exist
+  const w0=document.getElementById('lw_'+cid+'_0');
+  const r0=document.getElementById('lr_'+cid+'_0');
+  const pw=w0?w0.value:'';const pr=r0?r0.value:'';
+  const row=document.createElement('div');
+  row.id='srow_'+cid+'_'+i;
+  row.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:6px';
+  row.innerHTML=`<span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#5a5868;width:22px;text-align:center">S${i+1}</span>
+    <input class="sinp" type="number" inputmode="decimal" placeholder="lbs" value="${pw}" id="lw_${cid}_${i}" onfocus="this.dataset.auto='0'">
+    <span style="color:#5a5868;font-size:11px">x</span>
+    <input class="sinp" type="number" inputmode="numeric" placeholder="reps" value="${pr}" id="lr_${cid}_${i}" onfocus="this.dataset.auto='0'">`;
+  document.getElementById('setrows_'+cid).appendChild(row);
+}
+
+function autoFill(cid){
+  const n=logSetCounts[cid]||1;
+  const w=document.getElementById('lw_'+cid+'_0').value;
+  const r=document.getElementById('lr_'+cid+'_0').value;
+  for(let i=1;i<n;i++){
+    const wEl=document.getElementById('lw_'+cid+'_'+i);
+    const rEl=document.getElementById('lr_'+cid+'_'+i);
+    if(wEl&&(!wEl.value||wEl.dataset.auto==='1')){wEl.value=w;wEl.dataset.auto='1'}
+    if(rEl&&(!rEl.value||rEl.dataset.auto==='1')){rEl.value=r;rEl.dataset.auto='1'}
+  }
+}
+
+function saveLog(cid,ekey,exName,mg,restSec){
+  const numSets=logSetCounts[cid]||1;
   const sets=[];for(let i=0;i<numSets;i++){
     const w=parseFloat(document.getElementById('lw_'+cid+'_'+i).value)||0;
     const r=parseInt(document.getElementById('lr_'+cid+'_'+i).value)||0;sets.push({weight:w,reps:r})}
