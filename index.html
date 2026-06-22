@@ -95,6 +95,23 @@ body{background:#0D0D0D;color:#F0EDE6;font-family:'JetBrains Mono','SF Mono','Fi
 .modal-cancel{display:flex;align-items:center;justify-content:center;padding:14px;background:#0D0D0D;border:1px solid #333;border-radius:12px;cursor:pointer;color:#F0EDE6;font-size:14px;font-weight:600;font-family:inherit;width:100%;-webkit-appearance:none;appearance:none;outline:none;transition:all .15s;margin-top:4px}
 .modal-cancel:active{background:#222}
 .confetti-container{position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:100}
+.pr-badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;color:#FFD700;letter-spacing:.5px;vertical-align:middle}
+.pr-badge-icon{font-size:11px}
+.pr-inline{display:flex;gap:12px;padding:6px 10px;margin-bottom:6px;background:#FFD70008;border:1px solid #FFD70025;border-radius:8px;flex-wrap:wrap}
+.pr-inline-item{display:flex;flex-direction:column;gap:1px;flex:1;min-width:100px}
+.pr-inline-label{font-size:9px;color:#FFD70088;letter-spacing:1px;text-transform:uppercase}
+.pr-inline-val{font-size:13px;font-weight:600;color:#FFD700CC}
+.report-btn{background:none;border:1px solid #2A2A2A;border-radius:8px;color:#888;font-size:12px;padding:6px 10px;cursor:pointer;-webkit-appearance:none;appearance:none;outline:none;font-family:inherit;transition:all .2s;letter-spacing:.5px}
+.report-btn:active{background:#1A1A1A;border-color:#555;color:#CCC}
+.rpt-section{margin-bottom:20px}
+.rpt-section-title{font-size:13px;font-weight:600;letter-spacing:1px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #222}
+.rpt-row{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#0D0D0D;border:1px solid #222;border-radius:10px;margin-bottom:6px}
+.rpt-name{font-size:13px;font-weight:500;flex:1}
+.rpt-pr{display:flex;gap:16px;flex-shrink:0}
+.rpt-pr-item{text-align:right}
+.rpt-pr-label{font-size:9px;color:#555;letter-spacing:.5px;text-transform:uppercase}
+.rpt-pr-val{font-size:13px;font-weight:600;color:#FFD700CC}
+.rpt-empty{font-size:12px;color:#555;font-style:italic;padding:8px 0}
 </style>
 </head>
 <body>
@@ -106,9 +123,12 @@ body{background:#0D0D0D;color:#F0EDE6;font-family:'JetBrains Mono','SF Mono','Fi
       <div class="day-label" id="day-name"></div>
       <div class="date-big sg" id="date-display"></div>
     </div>
-    <div style="text-align:right">
-      <div class="workout-type sg" id="workout-label"></div>
-      <div class="workout-sub" id="workout-sub"></div>
+    <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+      <div>
+        <div class="workout-type sg" id="workout-label"></div>
+        <div class="workout-sub" id="workout-sub"></div>
+      </div>
+      <button class="report-btn" onclick="showReportModal()">🏆 PRs</button>
     </div>
   </div>
   <div class="week-strip" id="week-strip"></div>
@@ -413,6 +433,175 @@ function swapExercise(exIdx,altName){
 }
 function countDone(dk,exIdx,tot){let n=0;for(let i=0;i<tot;i++)if(isSetDone(dk,exIdx,i))n++;return n}
 
+function computePRs(){
+  const prs={};
+  for(const dk in dayData){
+    const parts=dk.split("-");
+    const d=new Date(parseInt(parts[0]),parseInt(parts[1]),parseInt(parts[2]));
+    const dayType=getDayType(d);
+    const workout=WORKOUTS[dayType];
+    if(!workout)continue;
+    const entry=dayData[dk];
+    if(!entry||!entry.sets)continue;
+
+    workout.exercises.forEach((baseEx,exIdx)=>{
+      const ex=getEffectiveExercise(dk,exIdx,baseEx);
+      const baseSets=baseEx.sets;
+      const extraSets=(entry.extra&&entry.extra[exIdx])||0;
+      const totalSets=baseSets+extraSets;
+
+      for(let si=0;si<totalSets;si++){
+        const sd=entry.sets[exIdx+"-"+si];
+        if(!sd||!sd.done)continue;
+
+        if(ex.cardio){
+          const dist=parseFloat(sd.distance)||0;
+          if(dist>0){
+            const nm=ex.name;
+            if(!prs[nm])prs[nm]={distance:0,cardio:true};
+            if(dist>prs[nm].distance)prs[nm].distance=dist;
+          }
+        }else if(ex.superset){
+          // Exercise 1
+          const n1=ex.name.split(" / ")[0].trim();
+          const w1=parseFloat(sd.weight)||0,r1=parseInt(sd.reps)||0;
+          if(w1>0||r1>0){
+            if(!prs[n1])prs[n1]={weight:0,weightReps:0,reps:0,repsWeight:0};
+            if(w1>prs[n1].weight||(w1===prs[n1].weight&&r1>prs[n1].weightReps)){prs[n1].weight=w1;prs[n1].weightReps=r1;}
+            if(r1>prs[n1].reps||(r1===prs[n1].reps&&w1>prs[n1].repsWeight)){prs[n1].reps=r1;prs[n1].repsWeight=w1;}
+          }
+          // Exercise 2
+          const n2=ex.name2||ex.name.split(" / ")[1]||"";
+          const w2=parseFloat(sd.weight2)||0,r2=parseInt(sd.reps2)||0;
+          if(n2&&(w2>0||r2>0)){
+            if(!prs[n2])prs[n2]={weight:0,weightReps:0,reps:0,repsWeight:0};
+            if(w2>prs[n2].weight||(w2===prs[n2].weight&&r2>prs[n2].weightReps)){prs[n2].weight=w2;prs[n2].weightReps=r2;}
+            if(r2>prs[n2].reps||(r2===prs[n2].reps&&w2>prs[n2].repsWeight)){prs[n2].reps=r2;prs[n2].repsWeight=w2;}
+          }
+        }else{
+          const nm=ex.name;
+          const w=parseFloat(sd.weight)||0,r=parseInt(sd.reps)||0;
+          if(w>0||r>0){
+            if(!prs[nm])prs[nm]={weight:0,weightReps:0,reps:0,repsWeight:0};
+            if(w>prs[nm].weight||(w===prs[nm].weight&&r>prs[nm].weightReps)){prs[nm].weight=w;prs[nm].weightReps=r;}
+            if(r>prs[nm].reps||(r===prs[nm].reps&&w>prs[nm].repsWeight)){prs[nm].reps=r;prs[nm].repsWeight=w;}
+          }
+        }
+      }
+    });
+  }
+  return prs;
+}
+
+function getPRText(prs,name){
+  const p=prs[name];
+  if(!p)return null;
+  if(p.cardio)return p.distance>0?p.distance+" mi":null;
+  if(p.weight<=0&&p.reps<=0)return null;
+  return p.weight+"lbs x "+p.weightReps;
+}
+
+function showReportModal(){
+  const prs=computePRs();
+  const root=document.getElementById("modal-root");
+  const ov=document.createElement("div");ov.className="modal-overlay";
+  const sh=document.createElement("div");sh.className="modal-sheet";sh.style.maxHeight="90vh";
+
+  const t=document.createElement("div");t.className="modal-title sg";t.textContent="🏆 Personal Records";t.style.color="#FFD700";
+  sh.appendChild(t);
+  const sub=document.createElement("div");sub.className="modal-sub";sub.textContent="All-time bests from completed sets";
+  sh.appendChild(sub);
+
+  const sections=[
+    {label:"Upper A — Strength",key:"UA",color:"#E85D3A"},
+    {label:"Lower A — Strength",key:"LA",color:"#E85D3A"},
+    {label:"Upper B — Volume",key:"UB",color:"#2D7DD2"},
+    {label:"Lower B — Volume",key:"LB",color:"#2D7DD2"},
+    {label:"Cardio",key:"_cardio",color:"#5A7D4F"}
+  ];
+
+  const seen=new Set();
+  sections.forEach(sec=>{
+    const sdiv=document.createElement("div");sdiv.className="rpt-section";
+    const stitle=document.createElement("div");stitle.className="rpt-section-title sg";stitle.textContent=sec.label;stitle.style.color=sec.color;
+    sdiv.appendChild(stitle);
+
+    let exercises=[];
+    if(sec.key==="_cardio"){
+      exercises=Object.keys(prs).filter(n=>prs[n].cardio);
+    }else{
+      const w=WORKOUTS[sec.key];
+      if(w)w.exercises.forEach(ex=>{
+        if(ex.cardio)return;
+        if(ex.superset){
+          const n1=ex.name.split(" / ")[0].trim();
+          const n2=ex.name2||ex.name.split(" / ")[1]||"";
+          if(n1)exercises.push(n1);
+          if(n2)exercises.push(n2);
+        }else{
+          exercises.push(ex.name);
+        }
+      });
+    }
+
+    // Also include swapped exercise PRs
+    const allAltNames=new Set();
+    if(sec.key!=="_cardio"){
+      const w=WORKOUTS[sec.key];
+      if(w)w.exercises.forEach(ex=>{
+        const alts=ALTERNATIVES[ex.name];
+        if(alts)alts.forEach(a=>{
+          const an=a.superset?a.name.split(" / ")[0].trim():a.name;
+          if(prs[an]&&!prs[an].cardio)allAltNames.add(an);
+          if(a.superset&&a.name2&&prs[a.name2])allAltNames.add(a.name2);
+        });
+      });
+    }
+
+    let hasData=false;
+    const renderRow=(nm)=>{
+      if(seen.has(nm))return;seen.add(nm);
+      const p=prs[nm];if(!p)return;
+      hasData=true;
+      const row=document.createElement("div");row.className="rpt-row";
+      const name=document.createElement("div");name.className="rpt-name";name.textContent=nm;
+      row.appendChild(name);
+      const prDiv=document.createElement("div");prDiv.className="rpt-pr";
+      if(p.cardio){
+        const it=document.createElement("div");it.className="rpt-pr-item";
+        it.innerHTML=`<div class="rpt-pr-label">Best</div><div class="rpt-pr-val">${p.distance} mi</div>`;
+        prDiv.appendChild(it);
+      }else{
+        if(p.weight>0){
+          const it=document.createElement("div");it.className="rpt-pr-item";
+          it.innerHTML=`<div class="rpt-pr-label">Weight</div><div class="rpt-pr-val">${p.weight} x ${p.weightReps}</div>`;
+          prDiv.appendChild(it);
+        }
+        if(p.reps>0&&(p.repsWeight!==p.weight||p.reps!==p.weightReps)){
+          const it=document.createElement("div");it.className="rpt-pr-item";
+          it.innerHTML=`<div class="rpt-pr-label">Reps</div><div class="rpt-pr-val">${p.repsWeight} x ${p.reps}</div>`;
+          prDiv.appendChild(it);
+        }
+      }
+      row.appendChild(prDiv);sdiv.appendChild(row);
+    };
+
+    exercises.forEach(renderRow);
+    allAltNames.forEach(renderRow);
+
+    if(!hasData){
+      const em=document.createElement("div");em.className="rpt-empty";em.textContent="No data logged yet";
+      sdiv.appendChild(em);
+    }
+    sh.appendChild(sdiv);
+  });
+
+  const cn=document.createElement("button");cn.className="modal-cancel";cn.textContent="Close";
+  cn.addEventListener("click",()=>{root.innerHTML=""});sh.appendChild(cn);
+  ov.appendChild(sh);ov.addEventListener("click",e=>{if(e.target===ov)root.innerHTML=""});
+  root.innerHTML="";root.appendChild(ov);
+}
+
 function showConfetti(){
   const el=document.getElementById("confetti-layer");el.innerHTML="";el.style.display="block";
   const colors=["#E85D3A","#2D7DD2","#5A7D4F","#F0EDE6","#FFD700"];
@@ -489,6 +678,7 @@ function render(){
   if(isComp&&!wasComplete)showConfetti();wasComplete=isComp;
 
   const container=document.getElementById("exercises");container.innerHTML="";
+  const allPRs=computePRs();
   workout.exercises.forEach((baseEx,exIdx)=>{
     const ex=getEffectiveExercise(dk,exIdx,baseEx);
     const entry=getDayEntry(dk),isSwapped=!!entry.swaps[exIdx],hasAlts=!!ALTERNATIVES[baseEx.name];
@@ -498,9 +688,19 @@ function render(){
 
     const div=document.createElement("div");div.className="exercise"+(exComp?" done":"");div.style.animationDelay=(exIdx*.05)+"s";
     const hdr=document.createElement("button");hdr.className="exercise-header";hdr.style.setProperty("--ac",color);
+    // Compute PR for header badge
+    let hdrPR="";
+    if(!ex.cardio){
+      const prName=ex.superset?ex.name.split(" / ")[0].trim():ex.name;
+      const prData=allPRs[prName];
+      if(prData&&prData.weight>0)hdrPR=` <span class="pr-badge"><span class="pr-badge-icon">🏆</span>${prData.weight}x${prData.weightReps}</span>`;
+    }else{
+      const prData=allPRs[ex.name];
+      if(prData&&prData.distance>0)hdrPR=` <span class="pr-badge"><span class="pr-badge-icon">🏆</span>${prData.distance}mi</span>`;
+    }
     hdr.innerHTML=`<div class="exercise-left"><span class="exercise-icon">${ex.icon}</span><div>
       <div class="exercise-name sg" style="color:${exComp?"#7BAF6E":"#F0EDE6"};text-decoration:${exComp?"line-through":"none"};text-decoration-color:#5A7D4F60">${ex.name}</div>
-      <div class="exercise-detail">${ex.detail}</div></div></div>
+      <div class="exercise-detail">${ex.detail}${hdrPR}</div></div></div>
       <div class="exercise-right">${totalSets>1?`<span class="exercise-count" style="color:${exComp?"#5A7D4F":"#555"}">${done}/${totalSets}</span>`:""}
       <span class="exercise-arrow${isExp?" open":""}">▼</span></div>`;
     hdr.addEventListener("click",()=>{expandedExercise=isExp?null:exIdx;render()});
@@ -518,6 +718,43 @@ function render(){
 
     if(isExp&&ex.note){
       const nt=document.createElement("div");nt.className="ex-note";nt.textContent=ex.note;sDiv.appendChild(nt);
+    }
+
+    // Inline PR display in expanded view
+    if(isExp&&!ex.cardio){
+      const prBox=document.createElement("div");prBox.className="pr-inline";
+      let hasPRData=false;
+      if(ex.superset){
+        const n1=ex.name.split(" / ")[0].trim();
+        const n2=ex.name2||ex.name.split(" / ")[1]||"";
+        const p1=allPRs[n1],p2=allPRs[n2];
+        if(p1&&p1.weight>0){
+          hasPRData=true;
+          const it=document.createElement("div");it.className="pr-inline-item";
+          it.innerHTML=`<div class="pr-inline-label">${n1}</div><div class="pr-inline-val">${p1.weight} lbs x ${p1.weightReps}</div>`;
+          prBox.appendChild(it);
+        }
+        if(p2&&p2.weight>0){
+          hasPRData=true;
+          const it=document.createElement("div");it.className="pr-inline-item";
+          it.innerHTML=`<div class="pr-inline-label">${n2}</div><div class="pr-inline-val">${p2.weight} lbs x ${p2.weightReps}</div>`;
+          prBox.appendChild(it);
+        }
+      }else{
+        const p=allPRs[ex.name];
+        if(p&&p.weight>0){
+          hasPRData=true;
+          const it1=document.createElement("div");it1.className="pr-inline-item";
+          it1.innerHTML=`<div class="pr-inline-label">Weight PR</div><div class="pr-inline-val">${p.weight} lbs x ${p.weightReps}</div>`;
+          prBox.appendChild(it1);
+          if(p.reps>0&&(p.repsWeight!==p.weight||p.reps!==p.weightReps)){
+            const it2=document.createElement("div");it2.className="pr-inline-item";
+            it2.innerHTML=`<div class="pr-inline-label">Rep PR</div><div class="pr-inline-val">${p.repsWeight} lbs x ${p.reps}</div>`;
+            prBox.appendChild(it2);
+          }
+        }
+      }
+      if(hasPRData)sDiv.appendChild(prBox);
     }
 
     for(let si=0;si<totalSets;si++){
