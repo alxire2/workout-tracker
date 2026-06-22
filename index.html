@@ -64,12 +64,14 @@ body{background:#0D0D0D;color:#F0EDE6;font-family:'JetBrains Mono','SF Mono','Fi
 .set-check{width:26px;height:26px;border-radius:8px;border:2px solid #333;background:transparent;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;cursor:pointer;-webkit-appearance:none;appearance:none;outline:none}
 .set-check.on{animation:checkPop .3s ease-out}
 .set-num{font-size:12px;color:#666;width:18px;flex-shrink:0;text-align:center}
-.set-inputs{display:flex;gap:6px;flex:1;align-items:center}
+.set-inputs{display:flex;flex-direction:column;gap:4px;flex:1}
+.set-input-row{display:flex;gap:6px;align-items:center}
 .set-field{display:flex;flex-direction:column;align-items:center;gap:2px;flex:1}
 .set-field label{font-size:9px;color:#555;letter-spacing:1px;text-transform:uppercase}
 .set-field input{width:100%;background:#1A1A1A;border:1px solid #2A2A2A;border-radius:6px;color:#F0EDE6;font-family:inherit;font-size:14px;padding:6px 4px;text-align:center;outline:none;-webkit-appearance:none;appearance:none}
 .set-field input:focus{border-color:var(--ac,#555)}
 .set-field input::placeholder{color:#444;font-size:11px}
+.ss-label{font-size:10px;color:#555;letter-spacing:.5px;width:100%;padding:2px 0 0}
 .add-set-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;background:transparent;border:1px dashed #333;border-radius:10px;cursor:pointer;color:#666;font-size:12px;font-family:inherit;width:100%;-webkit-appearance:none;appearance:none;outline:none;transition:all .2s}
 .add-set-btn:active{background:#1A1A1A;border-color:#555}
 .remove-set-btn{width:20px;height:20px;border-radius:50%;background:transparent;border:1px solid #333;color:#555;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;-webkit-appearance:none;appearance:none;outline:none;transition:all .2s;line-height:1}
@@ -77,6 +79,7 @@ body{background:#0D0D0D;color:#F0EDE6;font-family:'JetBrains Mono','SF Mono','Fi
 .swap-btn{background:none;border:1px solid #2A2A2A;border-radius:8px;color:#666;font-size:13px;padding:4px 8px;cursor:pointer;-webkit-appearance:none;appearance:none;outline:none;transition:all .2s;flex-shrink:0;line-height:1}
 .swap-btn:active{background:#1A1A1A;border-color:#555;color:#999}
 .swap-btn.swapped{border-color:var(--ac,#555);color:var(--ac,#888)}
+.ex-note{font-size:10px;color:#555;padding:0 0 6px;line-height:1.4;font-style:italic}
 .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:flex-end;justify-content:center;animation:fadeIn .15s ease-out}
 .modal-sheet{background:#1A1A1A;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:20px 20px 32px;animation:modalIn .25s ease-out;max-height:85vh;overflow-y:auto;padding-bottom:calc(32px + env(safe-area-inset-bottom))}
 .modal-title{font-size:16px;font-weight:600;margin-bottom:4px}
@@ -95,10 +98,8 @@ body{background:#0D0D0D;color:#F0EDE6;font-family:'JetBrains Mono','SF Mono','Fi
 </style>
 </head>
 <body>
-
 <div id="confetti-layer" class="confetti-container" style="display:none"></div>
 <div id="modal-root"></div>
-
 <div class="header" id="header">
   <div class="header-row">
     <div>
@@ -112,565 +113,501 @@ body{background:#0D0D0D;color:#F0EDE6;font-family:'JetBrains Mono','SF Mono','Fi
   </div>
   <div class="week-strip" id="week-strip"></div>
 </div>
-
 <div class="progress-section">
   <div class="progress-row">
     <span class="progress-label">Progress</span>
     <span class="progress-count" id="progress-count"></span>
   </div>
-  <div class="progress-track">
-    <div class="progress-fill" id="progress-fill"></div>
-  </div>
+  <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
 </div>
-
-<div class="complete-banner" id="complete-banner">
-  <span class="complete-text sg">Workout Complete ✓</span>
-</div>
-
+<div class="complete-banner" id="complete-banner"><span class="complete-text sg">Workout Complete ✓</span></div>
 <div class="exercises" id="exercises"></div>
 
 <script>
+// Day-of-week schedule: 0=Sun,1=Mon,...6=Sat
+const SCHEDULE = {
+  1: "UA", 2: "LA", 3: "RZ", 4: "UB", 5: "LB", 6: "RZ", 0: "RS"
+};
+
 const WORKOUTS = {
-  A: {
-    label: "Day A", subtitle: "Push + Quads", color: "#E85D3A",
+  UA: {
+    label: "Upper A", subtitle: "Strength", color: "#E85D3A",
     exercises: [
-      { name: "Run / Walk", sets: 1, detail: "5 miles", icon: "🏃", cardio: true },
-      { name: "Barbell Bench Press", sets: 3, detail: "8-10 reps", icon: "🏋️" },
-      { name: "Overhead Press", sets: 3, detail: "8-10 reps", icon: "🏋️" },
-      { name: "Dumbbell Flyes", sets: 3, detail: "12-15 reps", icon: "🦋" },
-      { name: "Barbell Squat", sets: 3, detail: "8-10 reps", icon: "🦵" },
-      { name: "Dumbbell Curls", sets: 3, detail: "10-12 reps", icon: "💪" }
+      { name:"Barbell Bench Press", sets:4, detail:"4x5 · 3 min rest", icon:"🏋️", note:"80-85% 1RM" },
+      { name:"Barbell Bent-Over Row", sets:4, detail:"4x5 · 3 min rest", icon:"🚣", note:"Overhand grip, pull to lower chest" },
+      { name:"Overhead Press", sets:3, detail:"3x6 · 2-3 min rest", icon:"🏋️", note:"Standing. Seated if stalling." },
+      { name:"Weighted Pull-Ups", sets:3, detail:"3x6-8 · 2 min rest", icon:"🔽", note:"Bodyweight if needed" },
+      { name:"Cable Face Pulls", sets:3, detail:"3x15 · 60s rest", icon:"🎯", note:"Rear delt / rotator cuff health" },
+      { name:"DB Curls / Cable Tricep Pushdowns", sets:2, detail:"2x10-12 each · 60s rest", icon:"💪", superset:true, name2:"Cable Tricep Pushdowns", note:"Low priority. Skip if short on time." },
+      { name:"Incline Treadmill Walk", sets:1, detail:"10 min cooldown", icon:"🚶", cardio:true, note:"10-15% incline, 3.0-3.5 mph" }
     ]
   },
-  B: {
-    label: "Day B", subtitle: "Pull + Hinge", color: "#2D7DD2",
+  LA: {
+    label: "Lower A", subtitle: "Strength", color: "#E85D3A",
     exercises: [
-      { name: "Run / Walk", sets: 1, detail: "5 miles", icon: "🏃", cardio: true },
-      { name: "Hex Bar Deadlift", sets: 3, detail: "6-8 reps", icon: "🏋️" },
-      { name: "Cable Lat Pulldowns", sets: 3, detail: "10-12 reps", icon: "🔽" },
-      { name: "Cable Rows", sets: 3, detail: "10-12 reps", icon: "🚣" },
-      { name: "Dumbbell Rows", sets: 3, detail: "10-12 ea. arm", icon: "🏋️" },
-      { name: "Cable Face Pulls", sets: 3, detail: "15 reps", icon: "🎯" }
+      { name:"Back Squat", sets:4, detail:"4x5 · 3 min rest", icon:"🦵", note:"80-85% 1RM. Full depth." },
+      { name:"Trap Bar Deadlift", sets:3, detail:"3x5 · 3 min rest", icon:"🏋️", note:"Heavy pull, less low-back tax than conventional" },
+      { name:"Barbell Romanian Deadlift", sets:3, detail:"3x8 · 2 min rest", icon:"🏋️", note:"Hamstring focus. Controlled eccentric." },
+      { name:"Walking Lunges", sets:3, detail:"3x10 each leg · 90s rest", icon:"🦵", note:"Unilateral balance + quad volume" },
+      { name:"Cable Pallof Press", sets:3, detail:"3x12 each side · 60s rest", icon:"🎯", note:"Anti-rotation core" },
+      { name:"Incline Treadmill Walk", sets:1, detail:"10 min cooldown", icon:"🚶", cardio:true, note:"10-15% incline, 3.0-3.5 mph" }
     ]
   },
-  R: {
-    label: "Rest Day", subtitle: "Recovery", color: "#5A7D4F",
+  UB: {
+    label: "Upper B", subtitle: "Volume", color: "#2D7DD2",
     exercises: [
-      { name: "Run / Walk (optional)", sets: 1, detail: "5 miles easy pace", icon: "🚶", cardio: true }
+      { name:"Incline DB Press", sets:4, detail:"4x8-10 · 2 min rest", icon:"🏋️", note:"30-45 degree angle. Upper chest." },
+      { name:"Cable Row", sets:4, detail:"4x10-12 · 90s rest", icon:"🚣", note:"Squeeze at contraction. Vary grip weekly." },
+      { name:"DB Shoulder Press", sets:3, detail:"3x10-12 · 90s rest", icon:"🏋️", note:"Seated. Lighter than OHP day." },
+      { name:"Lat Pulldown", sets:3, detail:"3x10-12 · 90s rest", icon:"🔽", note:"Wide grip. Full stretch at top." },
+      { name:"Cable Lateral Raises", sets:3, detail:"3x12-15 · 60s rest", icon:"🎯", note:"Behind-the-body cable path if possible" },
+      { name:"Hammer Curls / OH Tricep Extension", sets:2, detail:"2x12 each · 60s rest", icon:"💪", superset:true, name2:"OH Cable Tricep Extension", note:"Pump work. Not the priority." },
+      { name:"Incline Treadmill Walk", sets:1, detail:"10 min cooldown", icon:"🚶", cardio:true, note:"10-15% incline, 3.0-3.5 mph" }
+    ]
+  },
+  LB: {
+    label: "Lower B", subtitle: "Volume", color: "#2D7DD2",
+    exercises: [
+      { name:"Trap Bar Deadlift", sets:4, detail:"4x8 · 2-3 min rest", icon:"🏋️", note:"~70% 1RM. Speed off the floor." },
+      { name:"Front Squat / Goblet Squat", sets:3, detail:"3x8-10 · 2 min rest", icon:"🦵", note:"Front squat if mobility allows" },
+      { name:"DB Romanian Deadlift", sets:3, detail:"3x10-12 · 90s rest", icon:"🏋️", note:"Higher rep hamstring work. Slow eccentric." },
+      { name:"Cable Pull-Through", sets:3, detail:"3x12-15 · 60s rest", icon:"🎯", note:"Glute / hip hinge reinforcement" },
+      { name:"Hanging Leg Raises", sets:3, detail:"3x10-15 · 60s rest", icon:"🦵", note:"From pull-up bar. Bent knee if needed." },
+      { name:"Incline Treadmill Walk", sets:1, detail:"10 min cooldown", icon:"🚶", cardio:true, note:"10-15% incline, 3.0-3.5 mph" }
+    ]
+  },
+  RZ: {
+    label: "Rest Day", subtitle: "Zone 2 Cardio", color: "#5A7D4F",
+    exercises: [
+      { name:"Zone 2 Cardio", sets:1, detail:"30-45 min", icon:"🏃", cardio:true, note:"Conversational pace. HR 120-145 bpm. If you can't talk, too hard." }
+    ]
+  },
+  RS: {
+    label: "Rest Day", subtitle: "Active Recovery", color: "#5A7D4F",
+    exercises: [
+      { name:"Easy Walk", sets:1, detail:"20-30 min", icon:"🚶", cardio:true, note:"True active recovery. No performance intent." }
     ]
   }
 };
 
-// Alternatives keyed by default exercise name. All doable with: barbell, hex bar, 35lb dumbbells, cable tower, adjustable bench
 const ALTERNATIVES = {
   "Barbell Bench Press": [
-    { name: "Dumbbell Bench Press", detail: "8-10 reps", icon: "🏋️" },
-    { name: "Incline Barbell Bench", detail: "8-10 reps", icon: "🏋️" },
-    { name: "Incline Dumbbell Press", detail: "8-10 reps", icon: "🏋️" },
-    { name: "Close-Grip Bench Press", detail: "8-10 reps", icon: "🏋️" },
-    { name: "Floor Press", detail: "8-10 reps", icon: "🏋️" }
+    { name:"Dumbbell Bench Press", detail:"4x5", icon:"🏋️" },
+    { name:"Close-Grip Bench Press", detail:"4x5", icon:"🏋️" },
+    { name:"Floor Press", detail:"4x5", icon:"🏋️" },
+    { name:"Incline Barbell Bench", detail:"4x5", icon:"🏋️" },
+    { name:"Paused Bench Press", detail:"4x5", icon:"🏋️" }
+  ],
+  "Barbell Bent-Over Row": [
+    { name:"Pendlay Row", detail:"4x5", icon:"🚣" },
+    { name:"DB Row (heavy)", detail:"4x5 ea. arm", icon:"🚣" },
+    { name:"T-Bar Row (barbell)", detail:"4x5", icon:"🚣" },
+    { name:"Cable Row (heavy)", detail:"4x5", icon:"🚣" },
+    { name:"Chest-Supported DB Row", detail:"4x6-8", icon:"🚣" }
   ],
   "Overhead Press": [
-    { name: "Dumbbell Shoulder Press", detail: "8-10 reps", icon: "🏋️" },
-    { name: "Arnold Press", detail: "8-10 reps", icon: "🏋️" },
-    { name: "Push Press", detail: "6-8 reps", icon: "🏋️" },
-    { name: "Single Arm DB Press", detail: "8-10 ea. arm", icon: "🏋️" },
-    { name: "Cable Lateral Raises", detail: "12-15 reps", icon: "🎯" }
+    { name:"Dumbbell Shoulder Press", detail:"3x6", icon:"🏋️" },
+    { name:"Push Press", detail:"3x6", icon:"🏋️" },
+    { name:"Arnold Press", detail:"3x6-8", icon:"🏋️" },
+    { name:"Seated Barbell Press", detail:"3x6", icon:"🏋️" },
+    { name:"Single Arm DB Press", detail:"3x6 ea.", icon:"🏋️" }
   ],
-  "Dumbbell Flyes": [
-    { name: "Incline Dumbbell Flyes", detail: "12-15 reps", icon: "🦋" },
-    { name: "Single Arm Cable Fly", detail: "12-15 ea. arm", icon: "🦋" },
-    { name: "Dumbbell Pullover", detail: "10-12 reps", icon: "🏋️" },
-    { name: "Decline Dumbbell Flyes", detail: "12-15 reps", icon: "🦋" },
-    { name: "Cable Chest Press", detail: "10-12 reps", icon: "🏋️" }
-  ],
-  "Barbell Squat": [
-    { name: "Front Squat", detail: "8-10 reps", icon: "🦵" },
-    { name: "Goblet Squat", detail: "10-12 reps", icon: "🦵" },
-    { name: "Bulgarian Split Squat", detail: "8-10 ea. leg", icon: "🦵" },
-    { name: "Hex Bar Squat", detail: "8-10 reps", icon: "🦵" },
-    { name: "Walking Lunges", detail: "10-12 ea. leg", icon: "🦵" }
-  ],
-  "Dumbbell Curls": [
-    { name: "Hammer Curls", detail: "10-12 reps", icon: "💪" },
-    { name: "Cable Curls", detail: "10-12 reps", icon: "💪" },
-    { name: "Incline Dumbbell Curls", detail: "10-12 reps", icon: "💪" },
-    { name: "Concentration Curls", detail: "10-12 ea. arm", icon: "💪" },
-    { name: "Barbell Curls", detail: "10-12 reps", icon: "💪" }
-  ],
-  "Hex Bar Deadlift": [
-    { name: "Conventional Deadlift", detail: "6-8 reps", icon: "🏋️" },
-    { name: "Romanian Deadlift", detail: "8-10 reps", icon: "🏋️" },
-    { name: "Sumo Deadlift", detail: "6-8 reps", icon: "🏋️" },
-    { name: "Stiff-Leg Deadlift", detail: "8-10 reps", icon: "🏋️" },
-    { name: "Deficit Deadlift", detail: "6-8 reps", icon: "🏋️" }
-  ],
-  "Cable Lat Pulldowns": [
-    { name: "Wide Grip Pulldown", detail: "10-12 reps", icon: "🔽" },
-    { name: "Close Grip Pulldown", detail: "10-12 reps", icon: "🔽" },
-    { name: "Reverse Grip Pulldown", detail: "10-12 reps", icon: "🔽" },
-    { name: "Straight Arm Pulldown", detail: "12-15 reps", icon: "🔽" },
-    { name: "Single Arm Pulldown", detail: "10-12 ea. arm", icon: "🔽" }
-  ],
-  "Cable Rows": [
-    { name: "Single Arm Cable Row", detail: "10-12 ea. arm", icon: "🚣" },
-    { name: "Standing High Cable Row", detail: "10-12 reps", icon: "🚣" },
-    { name: "Cable Straight Bar Row", detail: "10-12 reps", icon: "🚣" },
-    { name: "Bent Over Barbell Row", detail: "8-10 reps", icon: "🏋️" },
-    { name: "Pendlay Row", detail: "6-8 reps", icon: "🏋️" }
-  ],
-  "Dumbbell Rows": [
-    { name: "Bent Over Barbell Row", detail: "8-10 reps", icon: "🏋️" },
-    { name: "Pendlay Row", detail: "6-8 reps", icon: "🏋️" },
-    { name: "Kroc Row", detail: "8-12 ea. arm", icon: "🏋️" },
-    { name: "Chest-Supported DB Row", detail: "10-12 reps", icon: "🏋️" },
-    { name: "T-Bar Row", detail: "8-10 reps", icon: "🏋️" }
+  "Weighted Pull-Ups": [
+    { name:"Lat Pulldown (heavy)", detail:"3x6-8", icon:"🔽" },
+    { name:"Chin-Ups", detail:"3x6-8", icon:"🔽" },
+    { name:"Band-Assisted Pull-Ups", detail:"3x6-8", icon:"🔽" },
+    { name:"Neutral Grip Pulldown", detail:"3x6-8", icon:"🔽" },
+    { name:"Negative Pull-Ups", detail:"3x4-5", icon:"🔽" }
   ],
   "Cable Face Pulls": [
-    { name: "Reverse Cable Flyes", detail: "12-15 reps", icon: "🎯" },
-    { name: "Rear Delt DB Flyes", detail: "12-15 reps", icon: "🎯" },
-    { name: "Prone Y-Raises", detail: "12-15 reps", icon: "🎯" },
-    { name: "Cable Upright Row", detail: "12-15 reps", icon: "🎯" },
-    { name: "Band Pull-Aparts", detail: "15-20 reps", icon: "🎯" }
+    { name:"Reverse Cable Flyes", detail:"3x15", icon:"🎯" },
+    { name:"Rear Delt DB Flyes", detail:"3x15", icon:"🎯" },
+    { name:"Prone Y-Raises", detail:"3x12-15", icon:"🎯" },
+    { name:"Band Pull-Aparts", detail:"3x15-20", icon:"🎯" },
+    { name:"Cable Upright Row", detail:"3x12-15", icon:"🎯" }
   ],
-  "Run / Walk": [
-    { name: "Incline Treadmill Walk", detail: "miles", icon: "🏃", cardio: true },
-    { name: "Treadmill Intervals", detail: "miles", icon: "🏃", cardio: true },
-    { name: "Treadmill Jog", detail: "miles", icon: "🏃", cardio: true },
-    { name: "HIIT Sprints", detail: "miles", icon: "🏃", cardio: true },
-    { name: "Incline Power Walk", detail: "miles", icon: "🏃", cardio: true }
+  "DB Curls / Cable Tricep Pushdowns": [
+    { name:"Hammer Curls / Dips", detail:"2x10-12 each", icon:"💪", superset:true, name2:"Bodyweight Dips" },
+    { name:"Barbell Curls / OH Extension", detail:"2x10-12 each", icon:"💪", superset:true, name2:"OH Cable Extension" },
+    { name:"Incline DB Curls / Rope Pushdowns", detail:"2x10-12 each", icon:"💪", superset:true, name2:"Cable Rope Pushdowns" },
+    { name:"Cable Curls / Close-Grip Press", detail:"2x10-12 each", icon:"💪", superset:true, name2:"Close-Grip Bench" },
+    { name:"Concentration Curls / Kickbacks", detail:"2x10-12 each", icon:"💪", superset:true, name2:"DB Kickbacks" }
   ],
-  "Run / Walk (optional)": [
-    { name: "Incline Treadmill Walk", detail: "miles", icon: "🚶", cardio: true },
-    { name: "Easy Treadmill Jog", detail: "miles", icon: "🚶", cardio: true },
-    { name: "Treadmill Walk", detail: "miles", icon: "🚶", cardio: true },
-    { name: "Active Recovery Walk", detail: "miles", icon: "🚶", cardio: true },
-    { name: "Incline Walk", detail: "miles", icon: "🚶", cardio: true }
+  "Back Squat": [
+    { name:"Front Squat", detail:"4x5", icon:"🦵" },
+    { name:"Pause Squat", detail:"4x5", icon:"🦵" },
+    { name:"Box Squat", detail:"4x5", icon:"🦵" },
+    { name:"Hex Bar Squat", detail:"4x5", icon:"🦵" },
+    { name:"Safety Bar Squat", detail:"4x5", icon:"🦵" }
+  ],
+  "Trap Bar Deadlift": [
+    { name:"Conventional Deadlift", detail:"same scheme", icon:"🏋️" },
+    { name:"Sumo Deadlift", detail:"same scheme", icon:"🏋️" },
+    { name:"Deficit Deadlift", detail:"same scheme", icon:"🏋️" },
+    { name:"Paused Deadlift", detail:"same scheme", icon:"🏋️" },
+    { name:"Block Pull", detail:"same scheme", icon:"🏋️" }
+  ],
+  "Barbell Romanian Deadlift": [
+    { name:"DB Romanian Deadlift", detail:"3x8", icon:"🏋️" },
+    { name:"Stiff-Leg Deadlift", detail:"3x8", icon:"🏋️" },
+    { name:"Single Leg DB RDL", detail:"3x8 ea.", icon:"🏋️" },
+    { name:"Cable Pull-Through", detail:"3x10-12", icon:"🏋️" },
+    { name:"Good Mornings", detail:"3x8", icon:"🏋️" }
+  ],
+  "Walking Lunges": [
+    { name:"Bulgarian Split Squat", detail:"3x10 ea.", icon:"🦵" },
+    { name:"Reverse Lunges", detail:"3x10 ea.", icon:"🦵" },
+    { name:"Step-Ups", detail:"3x10 ea.", icon:"🦵" },
+    { name:"Split Squat", detail:"3x10 ea.", icon:"🦵" },
+    { name:"Lateral Lunges", detail:"3x10 ea.", icon:"🦵" }
+  ],
+  "Cable Pallof Press": [
+    { name:"Cable Woodchops", detail:"3x12 ea.", icon:"🎯" },
+    { name:"Ab Rollout", detail:"3x10", icon:"🎯" },
+    { name:"Dead Bug (weighted)", detail:"3x12 ea.", icon:"🎯" },
+    { name:"Plank (weighted)", detail:"3x30-45s", icon:"🎯" },
+    { name:"Suitcase Carry", detail:"3x40m ea.", icon:"🎯" }
+  ],
+  "Incline DB Press": [
+    { name:"Incline Barbell Press", detail:"4x8-10", icon:"🏋️" },
+    { name:"Flat DB Press", detail:"4x8-10", icon:"🏋️" },
+    { name:"Cable Incline Press", detail:"4x10-12", icon:"🏋️" },
+    { name:"Decline DB Press", detail:"4x8-10", icon:"🏋️" },
+    { name:"Dumbbell Squeeze Press", detail:"4x10-12", icon:"🏋️" }
+  ],
+  "Cable Row": [
+    { name:"Single Arm Cable Row", detail:"4x10-12 ea.", icon:"🚣" },
+    { name:"Standing High Cable Row", detail:"4x10-12", icon:"🚣" },
+    { name:"DB Bent-Over Row", detail:"4x10-12 ea.", icon:"🚣" },
+    { name:"Barbell Bent-Over Row", detail:"4x10-12", icon:"🚣" },
+    { name:"Chest-Supported DB Row", detail:"4x10-12", icon:"🚣" }
+  ],
+  "DB Shoulder Press": [
+    { name:"Arnold Press", detail:"3x10-12", icon:"🏋️" },
+    { name:"Single Arm DB Press", detail:"3x10-12 ea.", icon:"🏋️" },
+    { name:"Barbell Push Press", detail:"3x8-10", icon:"🏋️" },
+    { name:"Cable Lateral + Front Raise", detail:"3x12 ea.", icon:"🏋️" },
+    { name:"Seated Barbell Press", detail:"3x10-12", icon:"🏋️" }
+  ],
+  "Lat Pulldown": [
+    { name:"Close Grip Pulldown", detail:"3x10-12", icon:"🔽" },
+    { name:"Reverse Grip Pulldown", detail:"3x10-12", icon:"🔽" },
+    { name:"Straight Arm Pulldown", detail:"3x12-15", icon:"🔽" },
+    { name:"Single Arm Pulldown", detail:"3x10-12 ea.", icon:"🔽" },
+    { name:"Wide Grip Pulldown", detail:"3x10-12", icon:"🔽" }
+  ],
+  "Cable Lateral Raises": [
+    { name:"DB Lateral Raises", detail:"3x12-15", icon:"🎯" },
+    { name:"Cable Front Raises", detail:"3x12-15", icon:"🎯" },
+    { name:"DB Rear Delt Flyes", detail:"3x12-15", icon:"🎯" },
+    { name:"Cable Y-Raises", detail:"3x12-15", icon:"🎯" },
+    { name:"DB Upright Row", detail:"3x12-15", icon:"🎯" }
+  ],
+  "Hammer Curls / OH Tricep Extension": [
+    { name:"DB Curls / Pushdowns", detail:"2x12 each", icon:"💪", superset:true, name2:"Cable Pushdowns" },
+    { name:"Incline Curls / Skull Crushers", detail:"2x12 each", icon:"💪", superset:true, name2:"BB Skull Crushers" },
+    { name:"Barbell Curls / Dips", detail:"2x12 each", icon:"💪", superset:true, name2:"Bodyweight Dips" },
+    { name:"Cable Curls / Rope Pushdowns", detail:"2x12 each", icon:"💪", superset:true, name2:"Cable Rope Pushdowns" },
+    { name:"Concentration Curls / Kickbacks", detail:"2x12 each", icon:"💪", superset:true, name2:"DB Kickbacks" }
+  ],
+  "Front Squat / Goblet Squat": [
+    { name:"Goblet Squat", detail:"3x8-10", icon:"🦵" },
+    { name:"Zercher Squat", detail:"3x8-10", icon:"🦵" },
+    { name:"Heel-Elevated Squat", detail:"3x8-10", icon:"🦵" },
+    { name:"Pause Front Squat", detail:"3x6-8", icon:"🦵" },
+    { name:"Cyclist Squat (narrow)", detail:"3x10-12", icon:"🦵" }
+  ],
+  "DB Romanian Deadlift": [
+    { name:"Barbell RDL (light)", detail:"3x10-12", icon:"🏋️" },
+    { name:"Single Leg DB RDL", detail:"3x10 ea.", icon:"🏋️" },
+    { name:"Stiff-Leg DB Deadlift", detail:"3x10-12", icon:"🏋️" },
+    { name:"Cable Pull-Through", detail:"3x12-15", icon:"🏋️" },
+    { name:"Good Mornings (light)", detail:"3x10-12", icon:"🏋️" }
+  ],
+  "Cable Pull-Through": [
+    { name:"Barbell Hip Thrust", detail:"3x12-15", icon:"🎯" },
+    { name:"Glute Bridge (weighted)", detail:"3x12-15", icon:"🎯" },
+    { name:"Cable Kickback", detail:"3x12-15 ea.", icon:"🎯" },
+    { name:"DB Romanian Deadlift", detail:"3x12-15", icon:"🎯" },
+    { name:"DB Sumo Squat", detail:"3x12-15", icon:"🎯" }
+  ],
+  "Hanging Leg Raises": [
+    { name:"Lying Leg Raises", detail:"3x10-15", icon:"🦵" },
+    { name:"Hanging Knee Raises", detail:"3x12-15", icon:"🦵" },
+    { name:"Cable Crunch", detail:"3x12-15", icon:"🦵" },
+    { name:"Ab Rollout", detail:"3x8-12", icon:"🦵" },
+    { name:"Decline Sit-Ups", detail:"3x12-15", icon:"🦵" }
   ]
 };
 
-const CYCLE = ["A","B","R","A","B","R","A"];
-const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const DAY_COLORS = { A: "#E85D3A", B: "#2D7DD2", R: "#5A7D4F" };
+const DAY_NAMES=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-let selectedDate = new Date();
-let expandedExercise = null;
-let startDate;
-let dayData = {};
+let selectedDate=new Date();
+let expandedExercise=null;
+let dayData={};
 
-function dateKey(d) { return d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate(); }
-function getDk() { return dateKey(selectedDate); }
+function dateKey(d){return d.getFullYear()+"-"+d.getMonth()+"-"+d.getDate()}
+function getDk(){return dateKey(selectedDate)}
+function getDayType(d){return SCHEDULE[d.getDay()]}
 
-function getDayEntry(dk) {
-  if (!dayData[dk]) dayData[dk] = { sets: {}, extra: {}, swaps: {} };
-  const s = dayData[dk].sets;
-  for (const k in s) { if (s[k] === true) s[k] = { done: true, weight: "", reps: "" }; }
-  if (!dayData[dk].extra) dayData[dk].extra = {};
-  if (!dayData[dk].swaps) dayData[dk].swaps = {};
+function getDayEntry(dk){
+  if(!dayData[dk])dayData[dk]={sets:{},extra:{},swaps:{}};
+  const s=dayData[dk].sets;
+  for(const k in s){if(s[k]===true)s[k]={done:true,weight:"",reps:""};}
+  if(!dayData[dk].extra)dayData[dk].extra={};
+  if(!dayData[dk].swaps)dayData[dk].swaps={};
   return dayData[dk];
 }
 
-function getEffectiveExercise(dk, exIdx, baseExercise) {
-  const entry = getDayEntry(dk);
-  const swapName = entry.swaps[exIdx];
-  if (!swapName) return baseExercise;
-  const alts = ALTERNATIVES[baseExercise.name];
-  if (!alts) return baseExercise;
-  const found = alts.find(a => a.name === swapName);
-  if (!found) return baseExercise;
-  return { ...baseExercise, name: found.name, detail: found.detail, icon: found.icon, cardio: !!found.cardio };
+function getEffectiveExercise(dk,exIdx,baseEx){
+  const entry=getDayEntry(dk);
+  const swapName=entry.swaps[exIdx];
+  if(!swapName)return baseEx;
+  const alts=ALTERNATIVES[baseEx.name];
+  if(!alts)return baseEx;
+  const found=alts.find(a=>a.name===swapName);
+  if(!found)return baseEx;
+  return {...baseEx,name:found.name,detail:found.detail,icon:found.icon,superset:!!found.superset,name2:found.name2||""};
 }
 
-function loadData() {
-  try {
-    const s = localStorage.getItem("workout-sets-v2");
-    if (s) { dayData = JSON.parse(s); }
-    else {
-      const v1 = localStorage.getItem("workout-sets");
-      if (v1) {
-        const old = JSON.parse(v1);
-        for (const dk in old) {
-          dayData[dk] = { sets: {}, extra: {}, swaps: {} };
-          for (const key in old[dk]) {
-            dayData[dk].sets[key] = old[dk][key] === true ? { done: true, weight: "", reps: "" } : old[dk][key];
-          }
-        }
-      }
-    }
-  } catch(e) {}
-  try {
-    const sd = localStorage.getItem("workout-start");
-    startDate = sd ? new Date(sd) : new Date();
-  } catch(e) { startDate = new Date(); }
-  startDate.setHours(0,0,0,0);
-  localStorage.setItem("workout-start", startDate.toISOString());
-}
-
-function saveData() { localStorage.setItem("workout-sets-v2", JSON.stringify(dayData)); }
-
-function getDayType(d) {
-  const diff = Math.floor((d - startDate) / 864e5);
-  const idx = ((diff % CYCLE.length) + CYCLE.length) % CYCLE.length;
-  return CYCLE[idx];
-}
-
-function getWeekStart(d) {
-  const w = new Date(d); w.setDate(w.getDate() - w.getDay()); w.setHours(0,0,0,0); return w;
-}
-
-function getSetData(dk, exIdx, setIdx) {
-  const entry = getDayEntry(dk);
-  return entry.sets[exIdx + "-" + setIdx] || null;
-}
-
-function isSetDone(dk, exIdx, setIdx) {
-  const sd = getSetData(dk, exIdx, setIdx);
-  return sd ? sd.done : false;
-}
-
-function getExtraSets(dk, exIdx) {
-  const entry = getDayEntry(dk);
-  return entry.extra[exIdx] || 0;
-}
-
-function toggleDone(exIdx, setIdx) {
-  const dk = getDk();
-  const entry = getDayEntry(dk);
-  const key = exIdx + "-" + setIdx;
-  if (!entry.sets[key]) entry.sets[key] = { done: false, weight: "", reps: "", distance: "" };
-  entry.sets[key].done = !entry.sets[key].done;
-  saveData(); render();
-}
-
-function updateField(exIdx, setIdx, field, value) {
-  const dk = getDk();
-  const entry = getDayEntry(dk);
-  const key = exIdx + "-" + setIdx;
-  if (!entry.sets[key]) entry.sets[key] = { done: false, weight: "", reps: "", distance: "" };
-  entry.sets[key][field] = value;
-  saveData();
-}
-
-function addExtraSet(exIdx) {
-  const dk = getDk();
-  const entry = getDayEntry(dk);
-  entry.extra[exIdx] = (entry.extra[exIdx] || 0) + 1;
-  saveData(); render();
-}
-
-function removeExtraSet(exIdx, setIdx) {
-  const dk = getDk();
-  const entry = getDayEntry(dk);
-  const key = exIdx + "-" + setIdx;
-  delete entry.sets[key];
-  const totalBase = getTotalBaseSets(exIdx);
-  const totalExtra = entry.extra[exIdx] || 0;
-  const totalSets = totalBase + totalExtra;
-  for (let i = setIdx + 1; i < totalSets; i++) {
-    const oldKey = exIdx + "-" + i;
-    const newKey = exIdx + "-" + (i - 1);
-    if (entry.sets[oldKey]) { entry.sets[newKey] = entry.sets[oldKey]; delete entry.sets[oldKey]; }
+function loadData(){
+  try{const s=localStorage.getItem("workout-sets-v3");if(s)dayData=JSON.parse(s);}catch(e){}
+  // Migrate v2 if exists
+  if(!Object.keys(dayData).length){
+    try{const s=localStorage.getItem("workout-sets-v2");if(s)dayData=JSON.parse(s);}catch(e){}
   }
-  entry.extra[exIdx] = Math.max(0, totalExtra - 1);
-  saveData(); render();
+}
+function saveData(){localStorage.setItem("workout-sets-v3",JSON.stringify(dayData))}
+
+function getSetData(dk,exIdx,si){const e=getDayEntry(dk);return e.sets[exIdx+"-"+si]||null}
+function isSetDone(dk,exIdx,si){const sd=getSetData(dk,exIdx,si);return sd?sd.done:false}
+function getExtraSets(dk,exIdx){return getDayEntry(dk).extra[exIdx]||0}
+
+function toggleDone(exIdx,si){
+  const dk=getDk(),e=getDayEntry(dk),k=exIdx+"-"+si;
+  if(!e.sets[k])e.sets[k]={done:false,weight:"",reps:"",weight2:"",reps2:"",distance:""};
+  e.sets[k].done=!e.sets[k].done;saveData();render();
+}
+function updateField(exIdx,si,field,val){
+  const dk=getDk(),e=getDayEntry(dk),k=exIdx+"-"+si;
+  if(!e.sets[k])e.sets[k]={done:false,weight:"",reps:"",weight2:"",reps2:"",distance:""};
+  e.sets[k][field]=val;saveData();
+}
+function addExtraSet(exIdx){
+  const dk=getDk(),e=getDayEntry(dk);
+  e.extra[exIdx]=(e.extra[exIdx]||0)+1;saveData();render();
+}
+function removeExtraSet(exIdx,si){
+  const dk=getDk(),e=getDayEntry(dk),k=exIdx+"-"+si;
+  delete e.sets[k];
+  const dayType=getDayType(selectedDate),w=WORKOUTS[dayType];
+  const base=w.exercises[exIdx].sets,ext=e.extra[exIdx]||0,tot=base+ext;
+  for(let i=si+1;i<tot;i++){const ok=exIdx+"-"+i,nk=exIdx+"-"+(i-1);if(e.sets[ok]){e.sets[nk]=e.sets[ok];delete e.sets[ok];}}
+  e.extra[exIdx]=Math.max(0,ext-1);saveData();render();
+}
+function swapExercise(exIdx,altName){
+  const dk=getDk(),e=getDayEntry(dk);
+  if(altName===null)delete e.swaps[exIdx];else e.swaps[exIdx]=altName;
+  saveData();render();
+}
+function countDone(dk,exIdx,tot){let n=0;for(let i=0;i<tot;i++)if(isSetDone(dk,exIdx,i))n++;return n}
+
+function showConfetti(){
+  const el=document.getElementById("confetti-layer");el.innerHTML="";el.style.display="block";
+  const colors=["#E85D3A","#2D7DD2","#5A7D4F","#F0EDE6","#FFD700"];
+  for(let i=0;i<30;i++){const c=document.createElement("div");const sz=8+Math.random()*8;
+    c.style.cssText=`position:absolute;top:-20px;left:${Math.random()*100}%;width:${sz}px;height:${sz}px;border-radius:${Math.random()>.5?"50%":"2px"};background:${colors[Math.floor(Math.random()*5)]};animation:confettiDrop ${1.5+Math.random()*1.5}s ease-in forwards;animation-delay:${Math.random()*.5}s`;
+    el.appendChild(c);}
+  setTimeout(()=>{el.style.display="none"},2500);
 }
 
-function swapExercise(exIdx, altName) {
-  const dk = getDk();
-  const entry = getDayEntry(dk);
-  if (altName === null) { delete entry.swaps[exIdx]; }
-  else { entry.swaps[exIdx] = altName; }
-  saveData(); render();
-}
-
-function getTotalBaseSets(exIdx) {
-  const dayType = getDayType(selectedDate);
-  return WORKOUTS[dayType].exercises[exIdx].sets;
-}
-
-function countDone(dk, exIdx, totalSets) {
-  let n = 0; for (let i = 0; i < totalSets; i++) if (isSetDone(dk, exIdx, i)) n++; return n;
-}
-
-function showConfetti() {
-  const el = document.getElementById("confetti-layer");
-  el.innerHTML = ""; el.style.display = "block";
-  const colors = ["#E85D3A","#2D7DD2","#5A7D4F","#F0EDE6","#FFD700"];
-  for (let i = 0; i < 30; i++) {
-    const c = document.createElement("div");
-    const size = 8 + Math.random() * 8;
-    c.style.cssText = `position:absolute;top:-20px;left:${Math.random()*100}%;width:${size}px;height:${size}px;border-radius:${Math.random()>.5?"50%":"2px"};background:${colors[Math.floor(Math.random()*5)]};animation:confettiDrop ${1.5+Math.random()*1.5}s ease-in forwards;animation-delay:${Math.random()*.5}s`;
-    el.appendChild(c);
-  }
-  setTimeout(() => { el.style.display = "none"; }, 2500);
-}
-
-function showSwapModal(exIdx, baseExercise, color) {
-  const dk = getDk();
-  const entry = getDayEntry(dk);
-  const currentSwap = entry.swaps[exIdx] || null;
-  const alts = ALTERNATIVES[baseExercise.name];
-  if (!alts) return;
-
-  const root = document.getElementById("modal-root");
-  const overlay = document.createElement("div");
-  overlay.className = "modal-overlay";
-  overlay.style.setProperty("--ac", color);
-
-  const sheet = document.createElement("div");
-  sheet.className = "modal-sheet";
-
-  const title = document.createElement("div");
-  title.className = "modal-title sg";
-  title.textContent = "Switch Exercise";
-  title.style.color = color;
-
-  const sub = document.createElement("div");
-  sub.className = "modal-sub";
-  sub.textContent = "Replacing: " + baseExercise.name;
-
-  sheet.appendChild(title);
-  sheet.appendChild(sub);
-
-  alts.forEach(alt => {
-    const opt = document.createElement("button");
-    opt.className = "modal-option" + (currentSwap === alt.name ? " active" : "");
-    opt.innerHTML = `
-      <span class="modal-option-icon">${alt.icon}</span>
-      <div>
-        <div class="modal-option-name sg">${alt.name}</div>
-        <div class="modal-option-detail">${alt.detail}</div>
-      </div>`;
-    opt.addEventListener("click", () => { swapExercise(exIdx, alt.name); root.innerHTML = ""; });
-    sheet.appendChild(opt);
+function showSwapModal(exIdx,baseEx,color){
+  const dk=getDk(),entry=getDayEntry(dk),cur=entry.swaps[exIdx]||null;
+  const alts=ALTERNATIVES[baseEx.name];if(!alts)return;
+  const root=document.getElementById("modal-root");
+  const ov=document.createElement("div");ov.className="modal-overlay";ov.style.setProperty("--ac",color);
+  const sh=document.createElement("div");sh.className="modal-sheet";
+  const t=document.createElement("div");t.className="modal-title sg";t.textContent="Switch Exercise";t.style.color=color;
+  const s=document.createElement("div");s.className="modal-sub";s.textContent="Replacing: "+baseEx.name;
+  sh.appendChild(t);sh.appendChild(s);
+  alts.forEach(alt=>{
+    const o=document.createElement("button");o.className="modal-option"+(cur===alt.name?" active":"");
+    o.innerHTML=`<span class="modal-option-icon">${alt.icon}</span><div><div class="modal-option-name sg">${alt.name}</div><div class="modal-option-detail">${alt.detail}</div></div>`;
+    o.addEventListener("click",()=>{swapExercise(exIdx,alt.name);root.innerHTML=""});sh.appendChild(o);
   });
-
-  if (currentSwap) {
-    const reset = document.createElement("button");
-    reset.className = "modal-reset";
-    reset.textContent = "↩ Reset to " + baseExercise.name;
-    reset.addEventListener("click", () => { swapExercise(exIdx, null); root.innerHTML = ""; });
-    sheet.appendChild(reset);
-  }
-
-  const cancel = document.createElement("button");
-  cancel.className = "modal-cancel";
-  cancel.textContent = "Cancel";
-  cancel.addEventListener("click", () => { root.innerHTML = ""; });
-  sheet.appendChild(cancel);
-
-  overlay.appendChild(sheet);
-  overlay.addEventListener("click", (e) => { if (e.target === overlay) root.innerHTML = ""; });
-  root.innerHTML = "";
-  root.appendChild(overlay);
+  if(cur){const r=document.createElement("button");r.className="modal-reset";r.textContent="↩ Reset to "+baseEx.name;
+    r.addEventListener("click",()=>{swapExercise(exIdx,null);root.innerHTML=""});sh.appendChild(r);}
+  const cn=document.createElement("button");cn.className="modal-cancel";cn.textContent="Cancel";
+  cn.addEventListener("click",()=>{root.innerHTML=""});sh.appendChild(cn);
+  ov.appendChild(sh);ov.addEventListener("click",e=>{if(e.target===ov)root.innerHTML=""});
+  root.innerHTML="";root.appendChild(ov);
 }
 
-let wasComplete = false;
+let wasComplete=false;
 
-function render() {
-  const today = new Date(); today.setHours(0,0,0,0);
-  const dayType = getDayType(selectedDate);
-  const workout = WORKOUTS[dayType];
-  const color = workout.color;
-  const dk = getDk();
+function render(){
+  const today=new Date();today.setHours(0,0,0,0);
+  const dayType=getDayType(selectedDate);
+  const workout=WORKOUTS[dayType];
+  const color=workout.color;
+  const dk=getDk();
 
-  document.getElementById("header").style.borderBottomColor = color + "22";
-  document.getElementById("day-name").textContent = DAY_NAMES[selectedDate.getDay()];
-  const dd = document.getElementById("date-display");
-  dd.textContent = MONTHS[selectedDate.getMonth()] + " " + selectedDate.getDate();
-  dd.style.color = color;
-  document.getElementById("workout-label").textContent = workout.label;
-  document.getElementById("workout-label").style.color = color;
-  document.getElementById("workout-sub").textContent = workout.subtitle;
+  document.getElementById("header").style.borderBottomColor=color+"22";
+  document.getElementById("day-name").textContent=DAY_NAMES[selectedDate.getDay()];
+  const dd=document.getElementById("date-display");
+  dd.textContent=MONTHS[selectedDate.getMonth()]+" "+selectedDate.getDate();dd.style.color=color;
+  document.getElementById("workout-label").textContent=workout.label;
+  document.getElementById("workout-label").style.color=color;
+  document.getElementById("workout-sub").textContent=workout.subtitle;
 
-  const ws = getWeekStart(selectedDate);
-  const strip = document.getElementById("week-strip");
-  strip.innerHTML = "";
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(ws); d.setDate(d.getDate() + i);
-    const dtype = getDayType(d);
-    const sel = dateKey(d) === dk;
-    const tod = dateKey(d) === dateKey(today);
-    const dc = DAY_COLORS[dtype];
-    const btn = document.createElement("button");
-    btn.className = "week-day";
-    if (sel) { btn.style.background = dc + "20"; btn.style.borderColor = dc + "60"; }
-    btn.innerHTML = `<span class="week-day-name">${DAY_NAMES[d.getDay()].slice(0,2)}</span>
+  const ws=new Date(selectedDate);ws.setDate(ws.getDate()-ws.getDay());ws.setHours(0,0,0,0);
+  const strip=document.getElementById("week-strip");strip.innerHTML="";
+  for(let i=0;i<7;i++){
+    const d=new Date(ws);d.setDate(d.getDate()+i);
+    const dt=getDayType(d),sel=dateKey(d)===dk,tod=dateKey(d)===dateKey(today);
+    const dc=WORKOUTS[dt].color;
+    const btn=document.createElement("button");btn.className="week-day";
+    if(sel){btn.style.background=dc+"20";btn.style.borderColor=dc+"60";}
+    btn.innerHTML=`<span class="week-day-name">${DAY_NAMES[d.getDay()].slice(0,2)}</span>
       <span class="week-day-num sg" style="font-weight:${sel?700:400};color:${sel?dc:"#888"}">${d.getDate()}</span>
       <span class="week-day-dot" style="background:${tod?dc:"transparent"}"></span>`;
-    const cd = new Date(d);
-    btn.addEventListener("click", () => { selectedDate = cd; expandedExercise = null; render(); });
+    const cd=new Date(d);btn.addEventListener("click",()=>{selectedDate=cd;expandedExercise=null;render()});
     strip.appendChild(btn);
   }
 
-  let totalSetsAll = 0, completedAll = 0;
-  workout.exercises.forEach((ex, exIdx) => {
-    const extra = getExtraSets(dk, exIdx);
-    const total = ex.sets + extra;
-    totalSetsAll += total;
-    completedAll += countDone(dk, exIdx, total);
-  });
-  const progress = totalSetsAll > 0 ? completedAll / totalSetsAll : 0;
-  const isComplete = completedAll === totalSetsAll && totalSetsAll > 0;
+  let totalAll=0,doneAll=0;
+  workout.exercises.forEach((ex,xi)=>{const ext=getExtraSets(dk,xi),t=ex.sets+ext;totalAll+=t;doneAll+=countDone(dk,xi,t)});
+  const prog=totalAll>0?doneAll/totalAll:0,isComp=doneAll===totalAll&&totalAll>0;
+  document.getElementById("progress-count").textContent=doneAll+"/"+totalAll;
+  document.getElementById("progress-count").style.color=isComp?"#5A7D4F":color;
+  const fill=document.getElementById("progress-fill");
+  fill.style.width=(prog*100)+"%";
+  fill.style.background=isComp?"linear-gradient(90deg,#5A7D4F,#7BAF6E)":`linear-gradient(90deg,${color}CC,${color})`;
+  fill.style.animation=prog>0&&!isComp?"progressPulse 2s ease infinite":"none";
+  document.getElementById("complete-banner").className="complete-banner"+(isComp?" show":"");
+  if(isComp&&!wasComplete)showConfetti();wasComplete=isComp;
 
-  document.getElementById("progress-count").textContent = completedAll + "/" + totalSetsAll;
-  document.getElementById("progress-count").style.color = isComplete ? "#5A7D4F" : color;
-  const fill = document.getElementById("progress-fill");
-  fill.style.width = (progress * 100) + "%";
-  fill.style.background = isComplete ? "linear-gradient(90deg,#5A7D4F,#7BAF6E)" : `linear-gradient(90deg,${color}CC,${color})`;
-  fill.style.animation = progress > 0 && !isComplete ? "progressPulse 2s ease infinite" : "none";
+  const container=document.getElementById("exercises");container.innerHTML="";
+  workout.exercises.forEach((baseEx,exIdx)=>{
+    const ex=getEffectiveExercise(dk,exIdx,baseEx);
+    const entry=getDayEntry(dk),isSwapped=!!entry.swaps[exIdx],hasAlts=!!ALTERNATIVES[baseEx.name];
+    const ext=getExtraSets(dk,exIdx),totalSets=baseEx.sets+ext;
+    const done=countDone(dk,exIdx,totalSets),exComp=done===totalSets;
+    const isExp=expandedExercise===exIdx;
 
-  const banner = document.getElementById("complete-banner");
-  banner.className = "complete-banner" + (isComplete ? " show" : "");
-  if (isComplete && !wasComplete) showConfetti();
-  wasComplete = isComplete;
+    const div=document.createElement("div");div.className="exercise"+(exComp?" done":"");div.style.animationDelay=(exIdx*.05)+"s";
+    const hdr=document.createElement("button");hdr.className="exercise-header";hdr.style.setProperty("--ac",color);
+    hdr.innerHTML=`<div class="exercise-left"><span class="exercise-icon">${ex.icon}</span><div>
+      <div class="exercise-name sg" style="color:${exComp?"#7BAF6E":"#F0EDE6"};text-decoration:${exComp?"line-through":"none"};text-decoration-color:#5A7D4F60">${ex.name}</div>
+      <div class="exercise-detail">${ex.detail}</div></div></div>
+      <div class="exercise-right">${totalSets>1?`<span class="exercise-count" style="color:${exComp?"#5A7D4F":"#555"}">${done}/${totalSets}</span>`:""}
+      <span class="exercise-arrow${isExp?" open":""}">▼</span></div>`;
+    hdr.addEventListener("click",()=>{expandedExercise=isExp?null:exIdx;render()});
+    div.appendChild(hdr);
 
-  const container = document.getElementById("exercises");
-  container.innerHTML = "";
-  workout.exercises.forEach((baseEx, exIdx) => {
-    const ex = getEffectiveExercise(dk, exIdx, baseEx);
-    const entry = getDayEntry(dk);
-    const isSwapped = !!entry.swaps[exIdx];
-    const hasAlts = !!ALTERNATIVES[baseEx.name];
-    const extra = getExtraSets(dk, exIdx);
-    const totalSets = baseEx.sets + extra;
-    const done = countDone(dk, exIdx, totalSets);
-    const exComplete = done === totalSets;
-    const isExpanded = expandedExercise === exIdx;
+    const sDiv=document.createElement("div");sDiv.className="sets-container"+(isExp?" open":"");sDiv.style.setProperty("--ac",color);
 
-    const div = document.createElement("div");
-    div.className = "exercise" + (exComplete ? " done" : "");
-    div.style.animationDelay = (exIdx * 0.05) + "s";
-
-    const header = document.createElement("button");
-    header.className = "exercise-header";
-    header.style.setProperty("--ac", color);
-
-    const leftHtml = `<div class="exercise-left">
-        <span class="exercise-icon">${ex.icon}</span>
-        <div>
-          <div class="exercise-name sg" style="color:${exComplete?"#7BAF6E":"#F0EDE6"};text-decoration:${exComplete?"line-through":"none"};text-decoration-color:#5A7D4F60">${ex.name}</div>
-          <div class="exercise-detail">${totalSets > 1 ? totalSets + " sets · " : ""}${ex.detail}</div>
-        </div>
-      </div>`;
-
-    const rightHtml = `<div class="exercise-right">
-        ${totalSets > 1 ? `<span class="exercise-count" style="color:${exComplete?"#5A7D4F":"#555"}">${done}/${totalSets}</span>` : ""}
-        <span class="exercise-arrow${isExpanded?" open":""}">▼</span>
-      </div>`;
-
-    header.innerHTML = leftHtml + rightHtml;
-    header.addEventListener("click", () => { expandedExercise = isExpanded ? null : exIdx; render(); });
-    div.appendChild(header);
-
-    const setsDiv = document.createElement("div");
-    setsDiv.className = "sets-container" + (isExpanded ? " open" : "");
-    setsDiv.style.setProperty("--ac", color);
-
-    // Swap button at top of expanded area
-    if (isExpanded && hasAlts) {
-      const swapRow = document.createElement("div");
-      swapRow.style.cssText = "display:flex;justify-content:flex-end;margin-bottom:4px";
-      const swapBtn = document.createElement("button");
-      swapBtn.className = "swap-btn" + (isSwapped ? " swapped" : "");
-      swapBtn.style.setProperty("--ac", color);
-      swapBtn.textContent = isSwapped ? "⇄ Swapped" : "⇄ Switch";
-      const cExIdx = exIdx;
-      swapBtn.addEventListener("click", (e) => { e.stopPropagation(); showSwapModal(cExIdx, baseEx, color); });
-      swapRow.appendChild(swapBtn);
-      setsDiv.appendChild(swapRow);
+    if(isExp&&hasAlts){
+      const sr=document.createElement("div");sr.style.cssText="display:flex;justify-content:flex-end;margin-bottom:4px";
+      const sb=document.createElement("button");sb.className="swap-btn"+(isSwapped?" swapped":"");sb.style.setProperty("--ac",color);
+      sb.textContent=isSwapped?"⇄ Swapped":"⇄ Switch";
+      sb.addEventListener("click",e=>{e.stopPropagation();showSwapModal(exIdx,baseEx,color)});
+      sr.appendChild(sb);sDiv.appendChild(sr);
     }
 
-    for (let si = 0; si < totalSets; si++) {
-      const sd = getSetData(dk, exIdx, si);
-      const checked = sd ? sd.done : false;
-      const isExtra = si >= baseEx.sets;
+    if(isExp&&ex.note){
+      const nt=document.createElement("div");nt.className="ex-note";nt.textContent=ex.note;sDiv.appendChild(nt);
+    }
 
-      const row = document.createElement("div");
-      row.className = "set-row" + (checked ? " checked" : "");
-      if (checked) { row.style.background = color + "10"; row.style.borderColor = color + "40"; }
+    for(let si=0;si<totalSets;si++){
+      const sd=getSetData(dk,exIdx,si),checked=sd?sd.done:false,isExtra=si>=baseEx.sets;
+      const row=document.createElement("div");row.className="set-row"+(checked?" checked":"");
+      if(checked){row.style.background=color+"10";row.style.borderColor=color+"40";}
 
-      const chk = document.createElement("button");
-      chk.className = "set-check" + (checked ? " on" : "");
-      chk.style.borderColor = checked ? color : "#333";
-      chk.style.background = checked ? color : "transparent";
-      if (checked) chk.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7L6 10L11 4" stroke="#0D0D0D" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-      const cExIdx = exIdx, cSetIdx = si;
-      chk.addEventListener("click", (e) => { e.stopPropagation(); toggleDone(cExIdx, cSetIdx); });
-      row.appendChild(chk);
+      const chk=document.createElement("button");chk.className="set-check"+(checked?" on":"");
+      chk.style.borderColor=checked?color:"#333";chk.style.background=checked?color:"transparent";
+      if(checked)chk.innerHTML='<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7L6 10L11 4" stroke="#0D0D0D" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      const cE=exIdx,cS=si;
+      chk.addEventListener("click",e=>{e.stopPropagation();toggleDone(cE,cS)});row.appendChild(chk);
 
-      if (ex.cardio) {
-        const inputs = document.createElement("div");
-        inputs.className = "set-inputs";
-        const dField = document.createElement("div");
-        dField.className = "set-field";
-        const dLabel = document.createElement("label");
-        dLabel.textContent = "miles";
-        const dInput = document.createElement("input");
-        dInput.type = "number"; dInput.inputMode = "decimal"; dInput.step = "0.1"; dInput.placeholder = "0";
-        dInput.value = sd ? (sd.distance || "") : "";
-        dInput.addEventListener("input", (e) => { updateField(cExIdx, cSetIdx, "distance", e.target.value); });
-        dInput.addEventListener("click", (e) => e.stopPropagation());
-        dField.appendChild(dLabel); dField.appendChild(dInput);
-        inputs.appendChild(dField);
-        row.appendChild(inputs);
+      if(ex.cardio){
+        const inp=document.createElement("div");inp.className="set-inputs";
+        const ir=document.createElement("div");ir.className="set-input-row";
+        const f=document.createElement("div");f.className="set-field";
+        const l=document.createElement("label");l.textContent="miles";
+        const ip=document.createElement("input");ip.type="number";ip.inputMode="decimal";ip.step="0.1";ip.placeholder="0";
+        ip.value=sd?(sd.distance||""):"";
+        ip.addEventListener("input",e=>{updateField(cE,cS,"distance",e.target.value)});
+        ip.addEventListener("click",e=>e.stopPropagation());
+        f.appendChild(l);f.appendChild(ip);ir.appendChild(f);inp.appendChild(ir);row.appendChild(inp);
+      } else if(ex.superset){
+        const num=document.createElement("span");num.className="set-num";num.textContent=si+1;row.appendChild(num);
+        const inp=document.createElement("div");inp.className="set-inputs";
+        // Exercise 1
+        const ssLabel1=document.createElement("div");ssLabel1.className="ss-label";
+        ssLabel1.textContent=ex.name.split(" / ")[0]||ex.name;inp.appendChild(ssLabel1);
+        const r1=document.createElement("div");r1.className="set-input-row";
+        const w1f=document.createElement("div");w1f.className="set-field";
+        const w1l=document.createElement("label");w1l.textContent="lbs";
+        const w1i=document.createElement("input");w1i.type="number";w1i.inputMode="decimal";w1i.placeholder="0";
+        w1i.value=sd?sd.weight:"";w1i.addEventListener("input",e=>{updateField(cE,cS,"weight",e.target.value)});
+        w1i.addEventListener("click",e=>e.stopPropagation());w1f.appendChild(w1l);w1f.appendChild(w1i);
+        const r1f=document.createElement("div");r1f.className="set-field";
+        const r1l=document.createElement("label");r1l.textContent="reps";
+        const r1i=document.createElement("input");r1i.type="number";r1i.inputMode="numeric";r1i.placeholder="0";
+        r1i.value=sd?sd.reps:"";r1i.addEventListener("input",e=>{updateField(cE,cS,"reps",e.target.value)});
+        r1i.addEventListener("click",e=>e.stopPropagation());r1f.appendChild(r1l);r1f.appendChild(r1i);
+        r1.appendChild(w1f);r1.appendChild(r1f);inp.appendChild(r1);
+        // Exercise 2
+        const ssLabel2=document.createElement("div");ssLabel2.className="ss-label";
+        ssLabel2.textContent=ex.name2||(ex.name.split(" / ")[1]||"");inp.appendChild(ssLabel2);
+        const r2=document.createElement("div");r2.className="set-input-row";
+        const w2f=document.createElement("div");w2f.className="set-field";
+        const w2l=document.createElement("label");w2l.textContent="lbs";
+        const w2i=document.createElement("input");w2i.type="number";w2i.inputMode="decimal";w2i.placeholder="0";
+        w2i.value=sd?(sd.weight2||""):"";w2i.addEventListener("input",e=>{updateField(cE,cS,"weight2",e.target.value)});
+        w2i.addEventListener("click",e=>e.stopPropagation());w2f.appendChild(w2l);w2f.appendChild(w2i);
+        const r2f=document.createElement("div");r2f.className="set-field";
+        const r2l=document.createElement("label");r2l.textContent="reps";
+        const r2i=document.createElement("input");r2i.type="number";r2i.inputMode="numeric";r2i.placeholder="0";
+        r2i.value=sd?(sd.reps2||""):"";r2i.addEventListener("input",e=>{updateField(cE,cS,"reps2",e.target.value)});
+        r2i.addEventListener("click",e=>e.stopPropagation());r2f.appendChild(r2l);r2f.appendChild(r2i);
+        r2.appendChild(w2f);r2.appendChild(r2f);inp.appendChild(r2);
+        row.appendChild(inp);
+        if(isExtra){const rm=document.createElement("button");rm.className="remove-set-btn";rm.innerHTML="&#x2715;";
+          rm.addEventListener("click",e=>{e.stopPropagation();removeExtraSet(cE,cS)});row.appendChild(rm);}
       } else {
-        const num = document.createElement("span");
-        num.className = "set-num"; num.textContent = si + 1;
-        row.appendChild(num);
-
-        const inputs = document.createElement("div");
-        inputs.className = "set-inputs";
-
-        const wField = document.createElement("div");
-        wField.className = "set-field";
-        const wLabel = document.createElement("label"); wLabel.textContent = "lbs";
-        const wInput = document.createElement("input");
-        wInput.type = "number"; wInput.inputMode = "decimal"; wInput.placeholder = "0";
-        wInput.value = sd ? sd.weight : "";
-        wInput.addEventListener("input", (e) => { updateField(cExIdx, cSetIdx, "weight", e.target.value); });
-        wInput.addEventListener("click", (e) => e.stopPropagation());
-        wField.appendChild(wLabel); wField.appendChild(wInput);
-
-        const rField = document.createElement("div");
-        rField.className = "set-field";
-        const rLabel = document.createElement("label"); rLabel.textContent = "reps";
-        const rInput = document.createElement("input");
-        rInput.type = "number"; rInput.inputMode = "numeric"; rInput.placeholder = "0";
-        rInput.value = sd ? sd.reps : "";
-        rInput.addEventListener("input", (e) => { updateField(cExIdx, cSetIdx, "reps", e.target.value); });
-        rInput.addEventListener("click", (e) => e.stopPropagation());
-        rField.appendChild(rLabel); rField.appendChild(rInput);
-
-        inputs.appendChild(wField); inputs.appendChild(rField);
-        row.appendChild(inputs);
-
-        if (isExtra) {
-          const rm = document.createElement("button");
-          rm.className = "remove-set-btn"; rm.innerHTML = "&#x2715;";
-          rm.addEventListener("click", (e) => { e.stopPropagation(); removeExtraSet(cExIdx, cSetIdx); });
-          row.appendChild(rm);
-        }
+        const num=document.createElement("span");num.className="set-num";num.textContent=si+1;row.appendChild(num);
+        const inp=document.createElement("div");inp.className="set-inputs";
+        const ir=document.createElement("div");ir.className="set-input-row";
+        const wf=document.createElement("div");wf.className="set-field";
+        const wl=document.createElement("label");wl.textContent="lbs";
+        const wi=document.createElement("input");wi.type="number";wi.inputMode="decimal";wi.placeholder="0";
+        wi.value=sd?sd.weight:"";wi.addEventListener("input",e=>{updateField(cE,cS,"weight",e.target.value)});
+        wi.addEventListener("click",e=>e.stopPropagation());wf.appendChild(wl);wf.appendChild(wi);
+        const rf=document.createElement("div");rf.className="set-field";
+        const rl=document.createElement("label");rl.textContent="reps";
+        const ri=document.createElement("input");ri.type="number";ri.inputMode="numeric";ri.placeholder="0";
+        ri.value=sd?sd.reps:"";ri.addEventListener("input",e=>{updateField(cE,cS,"reps",e.target.value)});
+        ri.addEventListener("click",e=>e.stopPropagation());rf.appendChild(rl);rf.appendChild(ri);
+        ir.appendChild(wf);ir.appendChild(rf);inp.appendChild(ir);row.appendChild(inp);
+        if(isExtra){const rm=document.createElement("button");rm.className="remove-set-btn";rm.innerHTML="&#x2715;";
+          rm.addEventListener("click",e=>{e.stopPropagation();removeExtraSet(cE,cS)});row.appendChild(rm);}
       }
-      setsDiv.appendChild(row);
+      sDiv.appendChild(row);
     }
 
-    if (!ex.cardio) {
-      const addBtn = document.createElement("button");
-      addBtn.className = "add-set-btn"; addBtn.innerHTML = "+ Add Set";
-      const cExIdx2 = exIdx;
-      addBtn.addEventListener("click", (e) => { e.stopPropagation(); addExtraSet(cExIdx2); });
-      setsDiv.appendChild(addBtn);
+    if(!ex.cardio){
+      const ab=document.createElement("button");ab.className="add-set-btn";ab.innerHTML="+ Add Set";
+      ab.addEventListener("click",e=>{e.stopPropagation();addExtraSet(exIdx)});sDiv.appendChild(ab);
     }
-
-    div.appendChild(setsDiv);
-    container.appendChild(div);
+    div.appendChild(sDiv);container.appendChild(div);
   });
 }
 
-loadData(); render();
-if ("serviceWorker" in navigator) { navigator.serviceWorker.register("sw.js").catch(() => {}); }
+loadData();render();
+if("serviceWorker"in navigator){navigator.serviceWorker.register("sw.js").catch(()=>{});}
 </script>
 </body>
 </html>
