@@ -112,6 +112,17 @@ body{background:#0D0D0D;color:#F0EDE6;font-family:'JetBrains Mono','SF Mono','Fi
 .rpt-pr-label{font-size:9px;color:#555;letter-spacing:.5px;text-transform:uppercase}
 .rpt-pr-val{font-size:13px;font-weight:600;color:#FFD700CC}
 .rpt-empty{font-size:12px;color:#555;font-style:italic;padding:8px 0}
+.prev-data{font-size:10px;color:#666;letter-spacing:.3px;padding:2px 0 0}
+.prev-data span{color:#888}
+.rpt-edit-btn{background:none;border:1px solid #333;border-radius:6px;color:#666;font-size:11px;padding:3px 8px;cursor:pointer;-webkit-appearance:none;appearance:none;outline:none;flex-shrink:0;font-family:inherit}
+.rpt-edit-btn:active{background:#1A1A1A;border-color:#555}
+.rpt-edit-row{display:flex;gap:8px;align-items:center;padding:8px 12px;background:#0D0D0D;border:1px solid #FFD70030;border-radius:10px;margin-bottom:6px}
+.rpt-edit-row .set-field{flex:1}
+.rpt-edit-row .set-field input{font-size:13px;padding:5px 4px}
+.rpt-save-btn{background:#FFD70020;border:1px solid #FFD70040;border-radius:8px;color:#FFD700;font-size:12px;padding:6px 12px;cursor:pointer;-webkit-appearance:none;appearance:none;outline:none;font-family:inherit;font-weight:600}
+.rpt-save-btn:active{background:#FFD70030}
+.rpt-clear-btn{background:none;border:1px solid #333;border-radius:8px;color:#666;font-size:12px;padding:6px 10px;cursor:pointer;-webkit-appearance:none;appearance:none;outline:none;font-family:inherit}
+.rpt-clear-btn:active{background:#1A1A1A}
 </style>
 </head>
 <body>
@@ -415,6 +426,7 @@ const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov",
 let selectedDate=new Date();
 let expandedExercise=null;
 let dayData={};
+let manualPRs={};
 
 function dateKey(d){return d.getFullYear()+"-"+d.getMonth()+"-"+d.getDate()}
 function getDk(){return dateKey(selectedDate)}
@@ -442,12 +454,13 @@ function getEffectiveExercise(dk,exIdx,baseEx){
 
 function loadData(){
   try{const s=localStorage.getItem("workout-sets-v3");if(s)dayData=JSON.parse(s);}catch(e){}
-  // Migrate v2 if exists
   if(!Object.keys(dayData).length){
     try{const s=localStorage.getItem("workout-sets-v2");if(s)dayData=JSON.parse(s);}catch(e){}
   }
+  try{const m=localStorage.getItem("workout-manual-prs");if(m)manualPRs=JSON.parse(m);}catch(e){}
 }
 function saveData(){localStorage.setItem("workout-sets-v3",JSON.stringify(dayData))}
+function saveManualPRs(){localStorage.setItem("workout-manual-prs",JSON.stringify(manualPRs))}
 
 function getSetData(dk,exIdx,si){const e=getDayEntry(dk);return e.sets[exIdx+"-"+si]||null}
 function isSetDone(dk,exIdx,si){const sd=getSetData(dk,exIdx,si);return sd?sd.done:false}
@@ -539,6 +552,19 @@ function computePRs(){
       }
     });
   }
+  // Merge manual PRs (manual wins if higher)
+  for(const nm in manualPRs){
+    const m=manualPRs[nm];
+    if(!m)continue;
+    if(m.cardio){
+      if(!prs[nm])prs[nm]={distance:0,cardio:true};
+      if((m.distance||0)>prs[nm].distance)prs[nm].distance=m.distance;
+    }else{
+      if(!prs[nm])prs[nm]={weight:0,weightReps:0,reps:0,repsWeight:0};
+      const mw=m.weight||0,mr=m.weightReps||0;
+      if(mw>prs[nm].weight||(mw===prs[nm].weight&&mr>prs[nm].weightReps)){prs[nm].weight=mw;prs[nm].weightReps=mr;}
+    }
+  }
   return prs;
 }
 
@@ -548,6 +574,38 @@ function getPRText(prs,name){
   if(p.cardio)return p.distance>0?p.distance+" mi":null;
   if(p.weight<=0&&p.reps<=0)return null;
   return p.weight+"lbs x "+p.weightReps;
+}
+
+function getPreviousSession(exerciseName,currentDk){
+  // Find most recent day before currentDk where this exercise was done
+  const dates=Object.keys(dayData).filter(dk=>dk!==currentDk).map(dk=>{
+    const p=dk.split("-");return{dk,d:new Date(parseInt(p[0]),parseInt(p[1]),parseInt(p[2]))};
+  }).sort((a,b)=>b.d-a.d);
+
+  for(const{dk,d}of dates){
+    const dayType=getDayType(d);
+    const workout=WORKOUTS[dayType];
+    if(!workout)continue;
+    const entry=dayData[dk];
+    if(!entry||!entry.sets)continue;
+
+    for(let exIdx=0;exIdx<workout.exercises.length;exIdx++){
+      const baseEx=workout.exercises[exIdx];
+      const ex=getEffectiveExercise(dk,exIdx,baseEx);
+      if(ex.name!==exerciseName)continue;
+
+      // Found a match - collect all sets
+      const sets=[];
+      const baseSets=baseEx.sets;
+      const ext=(entry.extra&&entry.extra[exIdx])||0;
+      for(let si=0;si<baseSets+ext;si++){
+        const sd=entry.sets[exIdx+"-"+si];
+        if(sd)sets.push(sd);else sets.push(null);
+      }
+      if(sets.some(s=>s&&s.done))return{sets,date:d};
+    }
+  }
+  return null;
 }
 
 function showReportModal(){
@@ -612,8 +670,36 @@ function showReportModal(){
     let hasData=false;
     const renderRow=(nm)=>{
       if(seen.has(nm))return;seen.add(nm);
-      const p=prs[nm];if(!p)return;
+      const p=prs[nm];
+      const hasP=p&&(p.cardio?p.distance>0:p.weight>0);
+      if(!hasP&&!p){
+        // Show with edit-only option
+        hasData=true;
+        const wrapper=document.createElement("div");
+        const row=document.createElement("div");row.className="rpt-row";
+        const name=document.createElement("div");name.className="rpt-name";name.textContent=nm;
+        row.appendChild(name);
+        const eb=document.createElement("button");eb.className="rpt-edit-btn";eb.textContent="Set PR";
+        eb.addEventListener("click",()=>{
+          if(wrapper.querySelector(".rpt-edit-row"))return;
+          const er=document.createElement("div");er.className="rpt-edit-row";
+          const wf=document.createElement("div");wf.className="set-field";
+          wf.innerHTML=`<label>LBS</label><input type="number" inputmode="decimal" placeholder="0" id="epr-w-${nm.replace(/\W/g,"")}">`;
+          const rf=document.createElement("div");rf.className="set-field";
+          rf.innerHTML=`<label>REPS</label><input type="number" inputmode="numeric" placeholder="0" id="epr-r-${nm.replace(/\W/g,"")}">`;
+          const sv=document.createElement("button");sv.className="rpt-save-btn";sv.textContent="Save";
+          sv.addEventListener("click",()=>{
+            const w=parseFloat(wf.querySelector("input").value)||0;
+            const r=parseInt(rf.querySelector("input").value)||0;
+            if(w>0||r>0){manualPRs[nm]={weight:w,weightReps:r};saveManualPRs();root.innerHTML="";showReportModal();}
+          });
+          er.appendChild(wf);er.appendChild(rf);er.appendChild(sv);wrapper.appendChild(er);
+        });
+        row.appendChild(eb);wrapper.appendChild(row);sdiv.appendChild(wrapper);return;
+      }
+      if(!hasP)return;
       hasData=true;
+      const wrapper=document.createElement("div");
       const row=document.createElement("div");row.className="rpt-row";
       const name=document.createElement("div");name.className="rpt-name";name.textContent=nm;
       row.appendChild(name);
@@ -634,10 +720,69 @@ function showReportModal(){
           prDiv.appendChild(it);
         }
       }
-      row.appendChild(prDiv);sdiv.appendChild(row);
+      row.appendChild(prDiv);
+      // Edit button
+      if(!p.cardio){
+        const eb=document.createElement("button");eb.className="rpt-edit-btn";eb.textContent="✎";
+        eb.addEventListener("click",()=>{
+          if(wrapper.querySelector(".rpt-edit-row"))return;
+          const er=document.createElement("div");er.className="rpt-edit-row";
+          const wf=document.createElement("div");wf.className="set-field";
+          wf.innerHTML=`<label>LBS</label><input type="number" inputmode="decimal" value="${p.weight||""}" id="epr-w-${nm.replace(/\W/g,"")}">`;
+          const rf=document.createElement("div");rf.className="set-field";
+          rf.innerHTML=`<label>REPS</label><input type="number" inputmode="numeric" value="${p.weightReps||""}" id="epr-r-${nm.replace(/\W/g,"")}">`;
+          const sv=document.createElement("button");sv.className="rpt-save-btn";sv.textContent="Save";
+          sv.addEventListener("click",()=>{
+            const w=parseFloat(wf.querySelector("input").value)||0;
+            const r=parseInt(rf.querySelector("input").value)||0;
+            if(w>0){manualPRs[nm]={weight:w,weightReps:r};saveManualPRs();root.innerHTML="";showReportModal();}
+          });
+          er.appendChild(wf);er.appendChild(rf);er.appendChild(sv);
+          if(manualPRs[nm]){
+            const cl=document.createElement("button");cl.className="rpt-clear-btn";cl.textContent="✕";
+            cl.addEventListener("click",()=>{delete manualPRs[nm];saveManualPRs();root.innerHTML="";showReportModal();});
+            er.appendChild(cl);
+          }
+          wrapper.appendChild(er);
+        });
+        row.appendChild(eb);
+      }
+      wrapper.appendChild(row);sdiv.appendChild(wrapper);
     };
 
-    exercises.forEach(renderRow);
+    // Show all exercises for this section, even without data
+    const renderAll=(nm)=>{
+      if(seen.has(nm))return;
+      const p=prs[nm];
+      if(p)renderRow(nm);
+      else{
+        // No data yet — still show with Set PR button
+        seen.add(nm);hasData=true;
+        const wrapper=document.createElement("div");
+        const row=document.createElement("div");row.className="rpt-row";
+        const name=document.createElement("div");name.className="rpt-name";name.textContent=nm;name.style.color="#666";
+        row.appendChild(name);
+        const eb=document.createElement("button");eb.className="rpt-edit-btn";eb.textContent="Set PR";
+        eb.addEventListener("click",()=>{
+          if(wrapper.querySelector(".rpt-edit-row"))return;
+          const er=document.createElement("div");er.className="rpt-edit-row";
+          const wf=document.createElement("div");wf.className="set-field";
+          wf.innerHTML=`<label>LBS</label><input type="number" inputmode="decimal" placeholder="0">`;
+          const rf=document.createElement("div");rf.className="set-field";
+          rf.innerHTML=`<label>REPS</label><input type="number" inputmode="numeric" placeholder="0">`;
+          const sv=document.createElement("button");sv.className="rpt-save-btn";sv.textContent="Save";
+          sv.addEventListener("click",()=>{
+            const w=parseFloat(wf.querySelector("input").value)||0;
+            const r=parseInt(rf.querySelector("input").value)||0;
+            if(w>0||r>0){manualPRs[nm]={weight:w,weightReps:r};saveManualPRs();root.innerHTML="";showReportModal();}
+          });
+          er.appendChild(wf);er.appendChild(rf);er.appendChild(sv);wrapper.appendChild(er);
+        });
+        row.appendChild(eb);wrapper.appendChild(row);sdiv.appendChild(wrapper);
+      }
+    };
+
+    exercises.forEach(renderAll);
     allAltNames.forEach(renderRow);
 
     if(!hasData){
@@ -808,8 +953,12 @@ function render(){
       if(hasPRData)sDiv.appendChild(prBox);
     }
 
+    // Get previous session data for this exercise
+    const prevSession=isExp?getPreviousSession(ex.name,dk):null;
+
     for(let si=0;si<totalSets;si++){
       const sd=getSetData(dk,exIdx,si),checked=sd?sd.done:false,isExtra=si>=baseEx.sets;
+      const prevSet=prevSession&&prevSession.sets[si]?prevSession.sets[si]:null;
       const row=document.createElement("div");row.className="set-row"+(checked?" checked":"");
       if(checked){row.style.background=color+"10";row.style.borderColor=color+"40";}
 
@@ -828,7 +977,13 @@ function render(){
         ip.value=sd?(sd.distance||""):"";
         ip.addEventListener("input",e=>{updateField(cE,cS,"distance",e.target.value)});
         ip.addEventListener("click",e=>e.stopPropagation());
-        f.appendChild(l);f.appendChild(ip);ir.appendChild(f);inp.appendChild(ir);row.appendChild(inp);
+        f.appendChild(l);f.appendChild(ip);ir.appendChild(f);
+        if(prevSet&&prevSet.distance){
+          const pv=document.createElement("div");pv.className="prev-data";
+          pv.innerHTML=`Last: <span>${prevSet.distance} mi</span>`;
+          ir.appendChild(pv);
+        }
+        inp.appendChild(ir);row.appendChild(inp);
       } else if(ex.superset){
         const num=document.createElement("span");num.className="set-num";num.textContent=si+1;row.appendChild(num);
         const inp=document.createElement("div");inp.className="set-inputs";
@@ -862,6 +1017,15 @@ function render(){
         r2i.value=sd?(sd.reps2||""):"";r2i.addEventListener("input",e=>{updateField(cE,cS,"reps2",e.target.value)});
         r2i.addEventListener("click",e=>e.stopPropagation());r2f.appendChild(r2l);r2f.appendChild(r2i);
         r2.appendChild(w2f);r2.appendChild(r2f);inp.appendChild(r2);
+        // Previous session data for superset
+        if(prevSet&&(prevSet.weight||prevSet.reps||prevSet.weight2||prevSet.reps2)){
+          const pv=document.createElement("div");pv.className="prev-data";
+          let pvText="Last: ";
+          if(prevSet.weight||prevSet.reps)pvText+=`<span>${prevSet.weight||"—"}x${prevSet.reps||"—"}</span>`;
+          if(prevSet.weight2||prevSet.reps2)pvText+=` / <span>${prevSet.weight2||"—"}x${prevSet.reps2||"—"}</span>`;
+          pv.innerHTML=pvText;
+          inp.appendChild(pv);
+        }
         row.appendChild(inp);
         if(isExtra){const rm=document.createElement("button");rm.className="remove-set-btn";rm.innerHTML="&#x2715;";
           rm.addEventListener("click",e=>{e.stopPropagation();removeExtraSet(cE,cS)});row.appendChild(rm);}
@@ -879,7 +1043,14 @@ function render(){
         const ri=document.createElement("input");ri.type="number";ri.inputMode="numeric";ri.placeholder="0";
         ri.value=sd?sd.reps:"";ri.addEventListener("input",e=>{updateField(cE,cS,"reps",e.target.value)});
         ri.addEventListener("click",e=>e.stopPropagation());rf.appendChild(rl);rf.appendChild(ri);
-        ir.appendChild(wf);ir.appendChild(rf);inp.appendChild(ir);row.appendChild(inp);
+        ir.appendChild(wf);ir.appendChild(rf);inp.appendChild(ir);
+        // Previous session data for regular exercise
+        if(prevSet&&(prevSet.weight||prevSet.reps)){
+          const pv=document.createElement("div");pv.className="prev-data";
+          pv.innerHTML=`Last: <span>${prevSet.weight||"—"} lbs x ${prevSet.reps||"—"}</span>`;
+          inp.appendChild(pv);
+        }
+        row.appendChild(inp);
         if(isExtra){const rm=document.createElement("button");rm.className="remove-set-btn";rm.innerHTML="&#x2715;";
           rm.addEventListener("click",e=>{e.stopPropagation();removeExtraSet(cE,cS)});row.appendChild(rm);}
       }
